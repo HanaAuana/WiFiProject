@@ -23,6 +23,10 @@ public class Packet {
 	byte[] crc;
 	ByteBuffer buf;
 	
+	public Packet(byte[] frame){
+		
+	}
+	
 	public Packet(int frameType, boolean retry, int seqNum, int destAddr, int srcAddr, byte[] data, byte[] crc){
 		
 		buf = ByteBuffer.allocate(2048);
