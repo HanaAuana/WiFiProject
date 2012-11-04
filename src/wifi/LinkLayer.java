@@ -1,6 +1,10 @@
 package wifi;
 import java.io.PrintWriter;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
+
+
 import rf.RF;
 
 /**
@@ -12,6 +16,10 @@ public class LinkLayer implements Dot11Interface {
 	private RF theRF;           // You'll need one of these eventually
 	private short ourMAC;       // Our MAC address
 	private PrintWriter output; // The output stream we'll write to
+	
+	
+	private BlockingQueue<Packet> in = new ArrayBlockingQueue(4);
+	private BlockingQueue<Packet> out = new ArrayBlockingQueue(4);
 
 	/**
 	 * Constructor takes a MAC address and the PrintWriter to which our output will
@@ -32,7 +40,14 @@ public class LinkLayer implements Dot11Interface {
 	 */
 	public int send(short dest, byte[] data, int len) {
 		output.println("LinkLayer: Sending "+len+" bytes to "+dest);
-		theRF.transmit(data);
+		Packet p = new Packet(data);
+		
+		try {
+			out.put(p);
+		} catch (InterruptedException e) {
+			// Auto-generated catch block
+			e.printStackTrace();
+		}
 		return len;
 	}
 
