@@ -1,6 +1,7 @@
 package wifi;
 
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * @author Alexander  King & Michael Lim
@@ -15,88 +16,72 @@ public class Packet {
 	//byte[] frame;
 	
 	int frameType;
-	int retry;
-	int seqNum;
-	int destAddr;
-	int srcAddr;
+	int retry = 0;
+	short seqNum;
+	short destAddr;
+	short srcAddr;
 	byte[] data;
 	byte[] crc;
 	ByteBuffer buf;
 	
 	public Packet(byte[] frame){
+		if(frame.length > 2038){
+			throw new IllegalArgumentException("Invalid packet size");
+		}
+		
+		buf = ByteBuffer.wrap(frame);
+		
+		setFrameType((int)(frame[0] >> 13));
+		retry = (int)((frame[0] >> 12) & 0x7);
+		setSeqNum((short)(frame[0] & 0xC));
+		
+		//setDestAddr((short)(frame[2] << 8));
+		setDestAddr(buf.getShort(4));
+		//setSrcAddr((frame[4] << 8));
+		setSrcAddr(buf.getShort(4));
+		//byte[] subArray = Arrays.copyOfRange(data, 7, frame.length - 4);
+		//setData(subArray);
+		buf.get(data, 6, frame.length - 4);
+		buf.get(crc, frame.length - 4, frame.length);
 		
 	}
 	
-	public Packet(int frameType, boolean retry, int seqNum, int destAddr, int srcAddr, byte[] data, byte[] crc){
+	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
 		
-		buf = ByteBuffer.allocate(2048);
+		buf = ByteBuffer.allocate(10 + data.length);
 		
-		//Check frameType
-		if(frameType < 0 || frameType > 7){
-			System.err.println("Error: Invalid frameType. Initialized to 0.");
-			frameType = 0;
-		}else{
-			this.frameType = frameType;
-		}
-		
-		if(retry == true){
-			this.retry = 1;
-		}else{
-			this.retry = 0;
-		}
-		
-		//Check seqNum
-		if(seqNum < 0 || seqNum > 4095){
-			System.err.println("Error: Invalid seqNum. Initialized to 0.");
-			seqNum = 0;
-		}else{
-			this.seqNum = seqNum;
-		}
-		
-		//Check destAddr
-		if(destAddr < 0 || destAddr > 65535){
-			System.err.println("Error: Invalid destAddr. Initialized to 0.");
-			destAddr = 0;
-		}else{
-			this.destAddr = destAddr;
-		}
-		
-		//Check srcAddr
-		if(srcAddr < 0 || srcAddr > 65535){
-			System.err.println("Error: Invalid srcAddr. Initialized to 0.");
-			srcAddr = 0;
-		}else{
-			this.srcAddr = srcAddr;
-		}
-		
+		setFrameType(frameType);
+		setSeqNum(seqNum);		
+		setDestAddr(destAddr);
+		setSrcAddr(srcAddr);
+				
 		//Check data
-		if(data == null || data.length != 2038){
-			System.err.println("Error: Invalid data. Initialized to empty byte[2038].");
-			data = new byte[2038];
+		if(data == null || data.length > 2038){
+			throw new IllegalArgumentException("Invalid data.");
 		}else{
 			this.data = data;
 		}
 		
 		//Check CRC
 		if(crc == null ||crc.length != 4){
-			System.err.println("Error: Invalid CRC. Initialized to empty byte[4].");
-			crc = new byte[4];
+			throw new IllegalArgumentException("Invalid CRC..");
 		}else{
 			this.crc = crc;
 		}
 		
-		//build control byte
+		fillPacket();
+	}
+	
+	private void fillPacket(){
 		byte control = makeControl(frameType,this.retry, seqNum);
-		
-		//fill Packet bytes
 		buf.put(0, control); //put control bytes
-		buf.putInt(2, destAddr); // put destAddr bytes
+		buf.putShort(2, destAddr); // put destAddr bytes
 		buf.putInt(4, srcAddr); // put srcAddr bytes
 		for(int i=0;i<data.length;i++){ //put data bytes
 			buf.put(i+5,data[i]);
 		}
 		for(int i=0;i<crc.length;i++){ //put crc bytes
-			buf.put(i+2044,crc[i]);
+			buf.put(buf.limit()-4,crc[i]);
 		}
 	}
 	
@@ -109,6 +94,15 @@ public class Packet {
 		//System.out.println("seqNum: " + seqNum);
 		//System.out.println("byte: " + temp);
 		return (byte)temp;
+	}
+	
+	public void setFrameType(int type){
+		//Check frame type
+		if(type < 0 || type > 7){
+			throw new IllegalArgumentException("Invalid frameType.");
+		}else{
+			frameType = type;
+		}
 	}
 	
 	public int getFrameType(){
@@ -124,27 +118,65 @@ public class Packet {
 		}
 	}
 	
+	public void setSeqNum(short seq){
+		//Check seqNum
+		if(seq < 0 || seq > 4095){
+			throw new IllegalArgumentException("Invalid seqNum.");
+		}else{
+			seqNum = seq;
+		}
+	}
+	
 	public int getSeqNum(){
 		return seqNum;
+	}
+	
+	public void setDestAddr(short addr){
+		//Check destAddr
+		if(addr < 0 || addr > 65535){
+			throw new IllegalArgumentException("Invalid destAddr.");
+		}else{
+			destAddr = addr;
+		}
 	}
 	
 	public int getDestAddr(){
 		return destAddr;
 	}
 	
+	public void setSrcAddr(short addr){
+		//Check srcAddr
+		if(addr < 0 || addr > 65535){
+			throw new IllegalArgumentException("Invalid srcAddr.");
+		}else{
+			this.srcAddr = addr;
+		}
+	}
+	
 	public int getSrcAddr(){
 		return srcAddr;
+	}
+	
+	public void setData(byte[] inData){
+		//Check data
+		if(data == null || data.length > 2038){
+			throw new IllegalArgumentException("Invalid data.");
+		}else{
+			data = inData;
+		}
 	}
 	
 	public byte[] getData(){
 		return data;
 	}
 	
+	
 	public byte[] getCrc(){
 		return crc;
 	}
 	
 	public byte[] getFrame(){
+		fillPacket();
 		return buf.array();
 	}
 }
