@@ -177,8 +177,18 @@ public class LinkLayer implements Dot11Interface, Runnable {
 		}
 
 		public void run() {
-
-
+			
+			while (true)
+			{
+				if(theLinkLayer.getOut().isEmpty() == false){
+					try {
+						theRF.transmit(theLinkLayer.getOut().take().getFrame());
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					
+				}
+			}
 		}
 
 	}
@@ -207,11 +217,6 @@ public class LinkLayer implements Dot11Interface, Runnable {
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
-				
-				
-
-
-
 
 			}
 
