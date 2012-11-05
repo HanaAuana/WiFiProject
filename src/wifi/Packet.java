@@ -66,7 +66,7 @@ public class Packet {
 		byte control = makeControl(frameType,this.retry, seqNum);
 		buf.put(0, control); //put control bytes
 		buf.putShort(2, destAddr); // put destAddr bytes
-		buf.putInt(4, srcAddr); // put srcAddr bytes
+		buf.putShort(4, srcAddr); // put srcAddr bytes
 		for(int i=0;i<data.length;i++){ //put data bytes
 			buf.put(i+5,data[i]);
 		}
