@@ -25,25 +25,15 @@ public class Packet {
 	ByteBuffer buf;
 	
 	public Packet(byte[] frame){
-		if(frame.length > 2038){
-			throw new IllegalArgumentException("Invalid packet size");
+		if(frame == null){
+			throw new IllegalArgumentException("Invalid packet. Packet is null.");
+		}else if(frame.length > 2038){
+			throw new IllegalArgumentException("Invalid packet size. Packet too big!");
+		} else if( frame.length < 1 ){
+			throw new IllegalArgumentException("Invalid packet size. No packet data.");
 		}
 		
-		buf = ByteBuffer.wrap(frame);
-		
-		setFrameType((int)(frame[0] >> 13));
-		retry = (int)((frame[0] >> 12) & 0x7);
-		setSeqNum((short)(frame[0] & 0xC));
-		
-		//setDestAddr((short)(frame[2] << 8));
-		setDestAddr(buf.getShort(4));
-		//setSrcAddr((frame[4] << 8));
-		setSrcAddr(buf.getShort(4));
-		//byte[] subArray = Arrays.copyOfRange(data, 7, frame.length - 4);
-		//setData(subArray);
-		buf.get(data, 6, frame.length - 4);
-		buf.get(crc, frame.length - 4, frame.length);
-		
+		buf = ByteBuffer.allocate(10 + data.length);
 	}
 	
 	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
@@ -76,7 +66,7 @@ public class Packet {
 		byte control = makeControl(frameType,this.retry, seqNum);
 		buf.put(0, control); //put control bytes
 		buf.putShort(2, destAddr); // put destAddr bytes
-		buf.putInt(4, srcAddr); // put srcAddr bytes
+		buf.putShort(4, srcAddr); // put srcAddr bytes
 		for(int i=0;i<data.length;i++){ //put data bytes
 			buf.put(i+5,data[i]);
 		}
