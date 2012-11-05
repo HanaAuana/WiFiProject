@@ -92,7 +92,6 @@ public class LinkLayer implements Dot11Interface, Runnable {
 
 		try {
 			out.put(p);
-			theRF.transmit(data);
 		} catch (InterruptedException e) {
 			// Auto-generated catch block
 			e.printStackTrace();
@@ -180,9 +179,9 @@ public class LinkLayer implements Dot11Interface, Runnable {
 			
 			while (true)
 			{
-				if(theLinkLayer.getOut().isEmpty() == false){
+				if(theLinkLayer.getOut().isEmpty() == false){ //If there are Packets to be sent in the LinkLayer's outbound queue
 					try {
-						theRF.transmit(theLinkLayer.getOut().take().getFrame());
+						theRF.transmit(theLinkLayer.getOut().take().getFrame()); //Send the first packet out on the RF layer
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -210,10 +209,10 @@ public class LinkLayer implements Dot11Interface, Runnable {
 			while (true)
 			{
 
-				Packet p = new Packet(theRF.receive());
+				Packet p = new Packet(theRF.receive()); //Gets data from the RF layer, turns it into packet form
 
 				try {
-					theLinkLayer.getIn().put(p);
+					theLinkLayer.getIn().put(p); //Puts the new Packet into the LinkLayer's inbound queue 
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
