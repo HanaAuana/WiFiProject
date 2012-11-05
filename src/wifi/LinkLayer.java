@@ -10,16 +10,32 @@ import rf.RF;
 /**
  * Use this layer as a starting point for your project code.  See {@link Dot11Interface} for more
  * details on these routines.
- * @author richards
+ * @author 
  */
-public class LinkLayer implements Dot11Interface {
+
+
+
+
+
+public class LinkLayer implements Dot11Interface, Runnable {
 	private RF theRF;           // You'll need one of these eventually
 	private short ourMAC;       // Our MAC address
 	private PrintWriter output; // The output stream we'll write to
-	
-	
+
+
 	private BlockingQueue<Packet> in = new ArrayBlockingQueue(4);
 	private BlockingQueue<Packet> out = new ArrayBlockingQueue(4);
+
+	public BlockingQueue<Packet> getIn() {
+		return in;
+	}
+
+	public BlockingQueue<Packet> getOut() {
+		return out;
+	}
+
+
+
 
 	/**
 	 * Constructor takes a MAC address and the PrintWriter to which our output will
@@ -34,16 +50,49 @@ public class LinkLayer implements Dot11Interface {
 		output.println("LinkLayer: Constructor ran.");
 	}
 
+
+
+	public void run() {
+
+		Receiver theReceiver = new Receiver(this,theRF);
+		Sender theSender = new Sender(this,theRF);
+		
+		new Thread(theReceiver).start();
+		new Thread(theSender).start();
+
+		while(true){
+
+
+
+		}
+
+
+	}
+
+
+
+
 	/**
 	 * Send method takes a destination, a buffer (array) of data, and the number
 	 * of bytes to send.  See docs for full description.
 	 */
 	public int send(short dest, byte[] data, int len) {
 		output.println("LinkLayer: Sending "+len+" bytes to "+dest);
-		Packet p = new Packet(data);
-		
+
+		byte[] fakeCRC = new byte[4];
+
+		fakeCRC[0] = 8;
+		fakeCRC[1] = 8;
+		fakeCRC[2] = 8;
+		fakeCRC[3] = 8;
+
+
+
+		Packet p = new Packet(0, (short)0, dest, ourMAC, data, fakeCRC);
+
 		try {
 			out.put(p);
+			theRF.transmit(data);
 		} catch (InterruptedException e) {
 			// Auto-generated catch block
 			e.printStackTrace();
@@ -57,8 +106,27 @@ public class LinkLayer implements Dot11Interface {
 	 */
 	public int recv(Transmission t) {
 		output.println("LinkLayer: Pretending to block on recv()");
-		while(true); // <--- This is a REALLY bad way to wait.  Sleep a little each time through.
-		//return 0;
+		
+		try {
+			Thread.sleep(10);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		Packet p;
+		try {
+			p = in.take();
+			byte[] data = p.getData();
+		    t.setSourceAddr((short) p.getSrcAddr());
+		    t.setDestAddr((short) p.getDestAddr());
+		    t.setBuf(data);
+		    return data.length;
+		    
+		} catch (InterruptedException e) {	
+			e.printStackTrace();
+		}
+		return -1;
+	      
 	}
 
 	/**
@@ -95,4 +163,61 @@ public class LinkLayer implements Dot11Interface {
 		output.println("LinkLayer: Sending command "+cmd+" with value "+val);
 		return 0;
 	}
+
+
+	class Sender implements Runnable {
+
+		private RF theRF;
+		private LinkLayer theLinkLayer;
+
+		public Sender(LinkLayer thisLink, RF thisRF) {
+
+			theRF = thisRF;
+			theLinkLayer = thisLink;
+		}
+
+		public void run() {
+
+
+		}
+
+	}
+
+	class Receiver implements Runnable {
+
+		private RF theRF;
+		private LinkLayer theLinkLayer;
+
+		public Receiver(LinkLayer thisLink, RF thisRF) {
+
+			theRF = thisRF;
+			theLinkLayer = thisLink;
+
+		}
+
+		public void run() {
+
+			while (true)
+			{
+
+				Packet p = new Packet(theRF.receive());
+
+				try {
+					theLinkLayer.getIn().put(p);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				
+				
+
+
+
+
+			}
+
+		}
+
+	}
+
+
 }
