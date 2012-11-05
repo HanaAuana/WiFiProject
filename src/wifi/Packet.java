@@ -33,7 +33,28 @@ public class Packet {
 			throw new IllegalArgumentException("Invalid packet size. No packet data.");
 		}
 		
-		buf = ByteBuffer.allocate(10 + data.length);
+		buf = ByteBuffer.allocate(frame.length);
+		
+		byte[] tempData = new byte[frame.length-10];
+		for(int i=6;i<frame.length-4;i++){ //make sub data[]
+			tempData[i-6] = frame[i];
+		}
+		
+		setData(tempData);
+		setDestAddr(frame[2]);
+		setSrcAddr(frame[4]);
+		
+		byte[] tempCrc = new byte[4];
+		tempCrc[0] = frame[frame.length-4];
+		tempCrc[1] = frame[frame.length-3];
+		tempCrc[2] = frame[frame.length-2];
+		tempCrc[3] = frame[frame.length-1];
+		
+		setCrc(tempCrc);
+		
+		//frameType, seqNum, and retry bit!
+		frameType = (frame[0] >> 1) & 7;
+		
 	}
 	
 	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
@@ -130,7 +151,7 @@ public class Packet {
 		buf.putShort(2, destAddr); // put destAddr bytes
 	}
 	
-	public int getDestAddr(){
+	public short getDestAddr(){
 		return destAddr;
 	}
 	
@@ -146,7 +167,7 @@ public class Packet {
 		buf.putShort(4, srcAddr); // put srcAddr bytes
 	}
 	
-	public int getSrcAddr(){
+	public short getSrcAddr(){
 		return srcAddr;
 	}
 	

@@ -13,7 +13,7 @@ public class Main {
 		short dest = 534;
 		short src = 256;
 		int retry = 1;
-		byte[] data = {1, 1};
+		byte[] data = {1, 1, 0, 1};
 		byte[] crc = {1,2,3,1};
 		System.out.println("Data In:");
 		System.out.println("\t Type:" + type);
