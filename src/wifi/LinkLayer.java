@@ -17,14 +17,14 @@ import rf.RF;
 
 
 
-public class LinkLayer implements Dot11Interface, Runnable {
+public class LinkLayer implements Dot11Interface{
 	private RF theRF;           // You'll need one of these eventually
 	private short ourMAC;       // Our MAC address
 	private PrintWriter output; // The output stream we'll write to
 
 
-	private BlockingQueue<Packet> in = new ArrayBlockingQueue(4);
-	private BlockingQueue<Packet> out = new ArrayBlockingQueue(4);
+	private BlockingQueue<Packet> in = new ArrayBlockingQueue(10);
+	private BlockingQueue<Packet> out = new ArrayBlockingQueue(10);
 
 	public BlockingQueue<Packet> getIn() {
 		return in;
@@ -48,28 +48,16 @@ public class LinkLayer implements Dot11Interface, Runnable {
 		this.output = output;      
 		theRF = new RF(null, null);
 		output.println("LinkLayer: Constructor ran.");
-	}
-
-
-
-	public void run() {
-
+		
 		Receiver theReceiver = new Receiver(this,theRF);
 		Sender theSender = new Sender(this,theRF);
 		
-		new Thread(theReceiver).start();
-		new Thread(theSender).start();
+		Thread r = new Thread(theReceiver);
+		Thread s = new Thread(theSender);
 
-		while(true){
-
-
-
-		}
-
-
+		r.start();
+		s.start();
 	}
-
-
 
 
 	/**
@@ -78,6 +66,7 @@ public class LinkLayer implements Dot11Interface, Runnable {
 	 */
 	public int send(short dest, byte[] data, int len) {
 		output.println("LinkLayer: Sending "+len+" bytes to "+dest);
+		System.out.println("Send is called");
 
 		byte[] fakeCRC = new byte[4];
 
@@ -116,9 +105,10 @@ public class LinkLayer implements Dot11Interface, Runnable {
 		try {
 			p = in.take();
 			byte[] data = p.getData();
-		    t.setSourceAddr((short) p.getSrcAddr());
+		    t.setSourceAddr( (short) p.getSrcAddr());
 		    t.setDestAddr((short) p.getDestAddr());
 		    t.setBuf(data);
+		    System.err.println("p.getData " + p.getData());
 		    return data.length;
 		    
 		} catch (InterruptedException e) {	
@@ -179,8 +169,10 @@ public class LinkLayer implements Dot11Interface, Runnable {
 			
 			while (true)
 			{
+				//System.err.println("In the send thread");
 				if(theLinkLayer.getOut().isEmpty() == false){ //If there are Packets to be sent in the LinkLayer's outbound queue
 					try {
+						System.out.println("Passing to RF");
 						theRF.transmit(theLinkLayer.getOut().take().getFrame()); //Send the first packet out on the RF layer
 					} catch (InterruptedException e) {
 						e.printStackTrace();
@@ -208,10 +200,17 @@ public class LinkLayer implements Dot11Interface, Runnable {
 
 			while (true)
 			{
+				
+				byte[] temp = theRF.receive();
+				
+				
+				System.err.println("recieved data from RF : "+ temp);
 
-				Packet p = new Packet(theRF.receive()); //Gets data from the RF layer, turns it into packet form
+				Packet p = new Packet(temp); //Gets data from the RF layer, turns it into packet form
+
 
 				try {
+					
 					theLinkLayer.getIn().put(p); //Puts the new Packet into the LinkLayer's inbound queue 
 				} catch (InterruptedException e) {
 					e.printStackTrace();
