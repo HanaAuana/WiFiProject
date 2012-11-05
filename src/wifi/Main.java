@@ -3,6 +3,54 @@ package wifi;
 public class Main {
 
 	public static void main(String[] args){
-		Packet test = new Packet(7, (short)4, (short)0, (short)0, new byte[1], new byte[4]);
+		
+		testPacketInOut();
+	}
+	
+	public static void testPacketInOut(){
+		int type = 1;
+		short seq = 0;
+		short dest = 534;
+		short src = 256;
+		byte[] data = {1, 1};
+		byte[] crc = {1,2,3,1};
+		System.out.println("Data In:");
+		System.out.println("\t Type:" + type);
+		System.out.println("\t SeqNum:" + seq);
+		System.out.println("\t DestAddr:" + dest);
+		System.out.println("\t SrcAddr:" + src);
+		System.out.print("\t Data: ");
+		for(int i = 0;i <data.length; i++){
+			System.out.print(data[i] + " ");
+		}
+		System.out.println();
+		System.out.print("\t Crc: ");
+		for(int i = 0;i <crc.length; i++){
+			System.out.print(crc[i] + " ");
+		}
+		System.out.println();
+		
+		Packet test = new Packet(type, seq, dest, src, data, crc);
+		
+		System.out.println("Data Out:");
+		System.out.println("\t Type:" + test.getFrameType());
+		System.out.println("\t SeqNum:" + test.getSeqNum());
+		System.out.println("\t DestAddr:" + test.getDestAddr());
+		System.out.println("\t SrcAddr:" + test.getSrcAddr());
+		System.out.print("\t Data: ");
+		for(int i = 0;i <test.getData().length; i++){
+			System.out.print(test.getData()[i] + " ");
+		}
+		System.out.println();
+		System.out.print("\t Crc: ");
+		for(int i = 0;i <test.getCrc().length; i++){
+			System.out.print(test.getCrc()[i] + " ");
+		}
+		System.out.println();
+		System.out.print("\t Full Frame: ");
+		for(int i = 0;i <test.getFrame().length; i++){
+			System.out.print(test.getFrame()[i] + " ");
+		}
+		System.out.println();
 	}
 }

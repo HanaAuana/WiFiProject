@@ -16,7 +16,7 @@ public class Packet {
 	//byte[] frame;
 	
 	int frameType;
-	int retry = 0;
+	int retry;
 	short seqNum;
 	short destAddr;
 	short srcAddr;
@@ -40,50 +40,26 @@ public class Packet {
 		
 		buf = ByteBuffer.allocate(10 + data.length);
 		
+		setData(data); //set data first to short circuit
 		setFrameType(frameType);
 		setSeqNum(seqNum);		
 		setDestAddr(destAddr);
 		setSrcAddr(srcAddr);
-				
-		//Check data
-		if(data == null || data.length > 2038){
-			throw new IllegalArgumentException("Invalid data.");
-		}else{
-			this.data = data;
-		}
-		
-		//Check CRC
-		if(crc == null ||crc.length != 4){
-			throw new IllegalArgumentException("Invalid CRC..");
-		}else{
-			this.crc = crc;
-		}
-		
-		fillPacket();
+		setRetry(false);
+		setCrc(crc);
 	}
 	
-	private void fillPacket(){
-		byte control = makeControl(frameType,this.retry, seqNum);
-		buf.put(0, control); //put control bytes
-		buf.putShort(2, destAddr); // put destAddr bytes
-		buf.putShort(4, srcAddr); // put srcAddr bytes
-		for(int i=0;i<data.length;i++){ //put data bytes
-			buf.put(i+5,data[i]);
-		}
-		for(int i=0;i<crc.length;i++){ //put crc bytes
-			buf.put(buf.limit()-4,crc[i]);
-		}
-	}
-	
-	private byte makeControl(int frameType, int retry, int seqNum){
-		int temp = 0;
+	private short makeControl(int frameType, int retry, short seqNum){
+		int temp;
 		temp = (frameType << 13) | (retry << 12) | seqNum;
 		//Test Shifting
-		//System.out.println("frameType: " + (frameType << 5));
-		//System.out.println("retry: " + retry);
-		//System.out.println("seqNum: " + seqNum);
-		//System.out.println("byte: " + temp);
-		return (byte)temp;
+//		System.out.println("frameType: " + (frameType << 5));
+//		System.out.println("retry: " + retry);
+//		System.out.println("seqNum: " + seqNum);
+//		System.out.println("byte: " + temp);
+//		System.out.println("makeControl: " + temp);
+//		System.out.println("Making control: " + temp);
+		return (short)temp;
 	}
 	
 	public void setFrameType(int type){
@@ -93,10 +69,27 @@ public class Packet {
 		}else{
 			frameType = type;
 		}
+		
+		//put in ByteBuffer
+		short control = makeControl(frameType,this.retry, seqNum);
+		buf.putShort(0, control); //put control bytes
 	}
 	
 	public int getFrameType(){
 		return frameType;
+	}
+	
+	public void setRetry(boolean input){
+		if (input){
+			retry = 1;
+		}
+		else{
+			retry = 0;
+		}
+		
+		//put in ByteBuffer
+		short control = makeControl(frameType,this.retry, seqNum);
+		buf.putShort(0, control); //put control bytes
 	}
 	
 	public boolean isRetry(){
@@ -115,6 +108,10 @@ public class Packet {
 		}else{
 			seqNum = seq;
 		}
+		
+		//put in ByteBuffer
+		short control = makeControl(frameType,this.retry, seqNum);
+		buf.putShort(0, control); //put control bytes
 	}
 	
 	public int getSeqNum(){
@@ -128,6 +125,9 @@ public class Packet {
 		}else{
 			destAddr = addr;
 		}
+		
+		//put in ByteBuffer
+		buf.putShort(2, destAddr); // put destAddr bytes
 	}
 	
 	public int getDestAddr(){
@@ -141,6 +141,9 @@ public class Packet {
 		}else{
 			this.srcAddr = addr;
 		}
+		
+		//put in ByteBuffer
+		buf.putShort(4, srcAddr); // put srcAddr bytes
 	}
 	
 	public int getSrcAddr(){
@@ -149,10 +152,15 @@ public class Packet {
 	
 	public void setData(byte[] inData){
 		//Check data
-		if(data == null || data.length > 2038){
+		if(inData == null || inData.length > 2038){
 			throw new IllegalArgumentException("Invalid data.");
 		}else{
 			data = inData;
+		}
+		
+		//put in ByteBuffer
+		for(int i=0;i<data.length;i++){ //put data bytes
+			buf.put(i+6,data[i]);
 		}
 	}
 	
@@ -161,12 +169,23 @@ public class Packet {
 	}
 	
 	
+	public void setCrc(byte[] input){
+		if(input == null || input.length > 4){
+			throw new IllegalArgumentException("Invalid data.");
+		}else{
+			crc = input;
+		}
+		for(int i=0;i<4;i++){ //put crc bytes
+			buf.put(buf.limit()-(4-i),crc[i]);
+		}
+	}
+	
 	public byte[] getCrc(){
 		return crc;
 	}
 	
 	public byte[] getFrame(){
-		fillPacket();
+		//fillPacket();
 		return buf.array();
 	}
 }
