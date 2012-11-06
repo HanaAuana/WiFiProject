@@ -39,10 +39,10 @@ public class Packet {
 		for(int i=6;i<frame.length-4;i++){ //make sub data[]
 			tempData[i-6] = frame[i];
 		}
-		
+		//Fill packet data
 		setData(tempData);
-		setDestAddr(frame[2]);
-		setSrcAddr(frame[4]);
+		setDestAddr((short)((frame[3] | frame[2] << 8) & 0xFFF));
+		setSrcAddr((short)((frame[5] | frame[4] << 8) & 0xFFF));
 		
 		byte[] tempCrc = new byte[4];
 		tempCrc[0] = frame[frame.length-4];
@@ -51,10 +51,9 @@ public class Packet {
 		tempCrc[3] = frame[frame.length-1];
 		
 		setCrc(tempCrc);
-		
-		//frameType, seqNum, and retry bit!
-		frameType = (frame[0] >> 1) & 7;
-		
+		setFrameType((frame[0] >> 5) & 0x7);
+		retry = ((frame[0] >> 4) & 0x1);
+		setSeqNum((short)((frame[1])| ((frame[0]) << 8) & 0xFFF));
 	}
 	
 	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
@@ -206,7 +205,18 @@ public class Packet {
 	}
 	
 	public byte[] getFrame(){
-		//fillPacket();
 		return buf.array();
+	}
+	
+	public String toString(){
+		String toString = "";
+		for(int i = 0;i <getFrame().length; i++){
+			if(i<getFrame().length){
+				toString = toString + (getFrame()[i] + " ");
+			}else{
+				toString = toString + (getFrame()[i]);
+			}
+		}
+		return toString;
 	}
 }
