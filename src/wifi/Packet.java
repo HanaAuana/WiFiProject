@@ -34,6 +34,9 @@ public class Packet {
 		}
 		
 		buf = ByteBuffer.allocate(frame.length);
+		buf = ByteBuffer.wrap(frame);
+		
+		
 		
 		byte[] tempData = new byte[frame.length-10];
 		for(int i=6;i<frame.length-4;i++){ //make sub data[]
@@ -41,8 +44,9 @@ public class Packet {
 		}
 		//Fill packet data
 		setData(tempData);
-		setDestAddr((short)((frame[3] | frame[2] << 8) & 0xFFF));
-		setSrcAddr((short)((frame[5] | frame[4] << 8) & 0xFFF));
+		//setDestAddr((short)((frame[3] | frame[2] << 8) & 0xFFF));
+		setSrcAddr(buf.getShort(4));
+		setDestAddr(buf.getShort(2));
 		
 		byte[] tempCrc = new byte[4];
 		tempCrc[0] = frame[frame.length-4];
