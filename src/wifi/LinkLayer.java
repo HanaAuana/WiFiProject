@@ -202,12 +202,24 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet p = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
-
-				try {
-					theLinkLayer.getIn().put(p); // Puts the new Packet into the LinkLayer's inbound queue
-				} catch (InterruptedException e) {
-					e.printStackTrace();
+				
+				short destAddr = p.getDestAddr();
+				
+				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
+					
+					try {
+						theLinkLayer.getIn().put(p); // Puts the new Packet into the LinkLayer's inbound queue
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					
 				}
+				else{
+					
+					output.println("Addr: "+ destAddr);
+				}
+
+
 
 			}
 

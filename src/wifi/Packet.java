@@ -144,7 +144,7 @@ public class Packet {
 	
 	public void setDestAddr(short addr){
 		//Check destAddr
-		if(addr < 0 || addr > 65535){
+		if((addr&0xff) < 0 || (addr&0xff) > 65535){
 			throw new IllegalArgumentException("Invalid destAddr.");
 		}else{
 			destAddr = addr;
@@ -160,7 +160,7 @@ public class Packet {
 	
 	public void setSrcAddr(short addr){
 		//Check srcAddr
-		if(addr < 0 || addr > 65535){
+		if((addr&0xff) < 0 || (addr&0xff) > 65535){
 			throw new IllegalArgumentException("Invalid srcAddr.");
 		}else{
 			this.srcAddr = addr;
