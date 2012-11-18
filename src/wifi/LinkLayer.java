@@ -214,7 +214,7 @@ public class LinkLayer implements Dot11Interface {
 						e.printStackTrace();
 					}
 					
-					if((destAddr&0xffff) == ourMAC){
+					if((destAddr&0xffff) == ourMAC && p.getFrameType() == 0){
 						
 						byte[] fakeCRC = new byte[4]; //Actual CRC stuff not implemented yet
 
@@ -232,7 +232,10 @@ public class LinkLayer implements Dot11Interface {
 						}
 						
 						theRF.transmit(ack.getFrame());
-						
+						output.println("Sent an ACK");
+					}
+					else{
+						output.println("Didn't ACK a packet of type: "+ p.getFrameType() + " to address "+ (destAddr&0xffff));
 					}
 					
 				}
