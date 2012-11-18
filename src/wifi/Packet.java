@@ -138,7 +138,7 @@ public class Packet {
 		buf.putShort(0, control); //put control bytes
 	}
 	
-	public int getSeqNum(){
+	public short getSeqNum(){
 		return seqNum;
 	}
 	

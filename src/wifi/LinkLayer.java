@@ -213,6 +213,27 @@ public class LinkLayer implements Dot11Interface {
 						e.printStackTrace();
 					}
 					
+					if((destAddr&0xffff) == ourMAC){
+						
+						byte[] fakeCRC = new byte[4]; //Actual CRC stuff not implemented yet
+
+						fakeCRC[0] = 15;
+						fakeCRC[1] = 15;
+						fakeCRC[2] = 15;
+						fakeCRC[3] = 15;
+						
+						Packet ack = new Packet(1, p.getSeqNum(), p.getSrcAddr(), ourMAC, null, fakeCRC);
+						
+						try {
+							Thread.sleep((long)0.01); //Sleeps to wait SIFS
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+						
+						theRF.transmit(ack.getFrame());
+						
+					}
+					
 				}
 				else{
 					
