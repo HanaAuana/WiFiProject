@@ -159,6 +159,7 @@ public class LinkLayer implements Dot11Interface {
 				
 				
 				try {
+					//Dont forget about exponential backoff!
 					Thread.sleep(10); //Sleeps each time through, in order to not monopolize the CPU
 				} catch (InterruptedException e) {
 					e.printStackTrace();
