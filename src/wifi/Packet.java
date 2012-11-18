@@ -176,16 +176,20 @@ public class Packet {
 	
 	public void setData(byte[] inData){
 		//Check data
-		if(inData == null || inData.length > 2038){
+		if(inData.length > 2038){
 			throw new IllegalArgumentException("Invalid data.");
 		}else{
 			data = inData;
 		}
 		
-		//put in ByteBuffer
-		for(int i=0;i<data.length;i++){ //put data bytes
+		if(inData != null){
+			//put in ByteBuffer
+			for(int i=0;i<data.length;i++){ //put data bytes
 			buf.put(i+6,data[i]);
+			}
 		}
+		
+		
 	}
 	
 	public byte[] getData(){
