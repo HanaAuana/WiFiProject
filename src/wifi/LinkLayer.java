@@ -57,6 +57,9 @@ public class LinkLayer implements Dot11Interface {
 		s.start();
 	}
 
+//	public short nextSeqNum(){
+//		
+//	}
 	/**
 	 * Send method takes a destination, a buffer (array) of data, and the number
 	 * of bytes to send. See docs for full description.
