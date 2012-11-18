@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.HashMap;
 
 import rf.RF;
 
@@ -23,7 +24,10 @@ public class LinkLayer implements Dot11Interface {
 
 	private BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
 	private BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
-
+	
+	private HashMap<Short,Short> sendSequences = new HashMap();
+	private HashMap<Short,Short> recvSequences = new HashMap();
+	
 	public BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
 		return in;
 	}
@@ -57,9 +61,17 @@ public class LinkLayer implements Dot11Interface {
 		s.start();
 	}
 
-//	public short nextSeqNum(){
-//		
-//	}
+	public short nextSeqNum(short addr){
+		short nextSeq;
+		if(sendSequences.containsKey(addr)){
+			nextSeq = (short) (sendSequences.get(addr)+1);
+		}
+		else{
+			nextSeq = 0;
+		}
+		this.sendSequences.put(addr, (short)(nextSeq));
+	    return nextSeq;
+	}
 	/**
 	 * Send method takes a destination, a buffer (array) of data, and the number
 	 * of bytes to send. See docs for full description.
@@ -74,7 +86,7 @@ public class LinkLayer implements Dot11Interface {
 		fakeCRC[2] = 15;
 		fakeCRC[3] = 15;
 
-		Packet p = new Packet(0, (short) 0, dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
+		Packet p = new Packet(0, nextSeqNum(dest), dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
 		try {
 			out.put(p); //Puts the created packet into the outgoing queue
@@ -90,8 +102,6 @@ public class LinkLayer implements Dot11Interface {
 	 * into the Transmission object. See docs for full description.
 	 */
 	public int recv(Transmission t) { //Called by the above layer when it wants to receive data
-
-		
 
 		Packet p; 
 		try {
@@ -157,10 +167,7 @@ public class LinkLayer implements Dot11Interface {
 		}
 
 		public void run() {
-
-			while (true) {
-				
-				
+			while (true) {	
 				try {
 					//Dont forget about exponential backoff!
 					Thread.sleep(10); //Sleeps each time through, in order to not monopolize the CPU
@@ -174,11 +181,9 @@ public class LinkLayer implements Dot11Interface {
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
-
 				}
 			}
 		}
-
 	}
 
 	class Receiver implements Runnable { //Handles receiving functions for the LinkLayer
@@ -190,15 +195,10 @@ public class LinkLayer implements Dot11Interface {
 
 			theRF = thisRF;
 			theLinkLayer = thisLink;
-
 		}
 
 		public void run() {
-			
-			
-
 			while (true) {
-				
 				try {
 					Thread.sleep(10); //Sleeps each time through, in order to not monopolize the CPU
 				} catch (InterruptedException e) {
@@ -240,19 +240,11 @@ public class LinkLayer implements Dot11Interface {
 					else{
 						output.println("Didn't ACK a packet of type: "+ p.getFrameType() + " to address "+ (destAddr&0xffff));
 					}
-					
 				}
 				else{
-					
 					output.println("Addr: "+ destAddr);
 				}
-
-
-
 			}
-
 		}
-
 	}
-
 }

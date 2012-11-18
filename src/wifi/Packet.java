@@ -13,8 +13,6 @@ import java.util.Arrays;
 
 public class Packet {
 
-	//byte[] frame;
-
 	int frameType;
 	int retry;
 	short seqNum;
@@ -35,8 +33,6 @@ public class Packet {
 
 		buf = ByteBuffer.allocate(frame.length);
 		buf = ByteBuffer.wrap(frame);
-
-
 
 		byte[] tempData = new byte[frame.length-10];
 		for(int i=6;i<frame.length-4;i++){ //make sub data[]
