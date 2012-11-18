@@ -61,8 +61,10 @@ public class Packet {
 	}
 
 	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
-
-		buf = ByteBuffer.allocate(10 + data.length);
+		
+		if(data != null){
+			buf = ByteBuffer.allocate(10 + data.length);
+		}
 
 		setData(data); //set data first to short circuit
 		setFrameType(frameType);
