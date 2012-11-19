@@ -265,7 +265,7 @@ public class LinkLayer implements Dot11Interface {
 						
 						
 						try {
-							Thread.sleep((long)0.01); //Sleeps to wait SIFS
+							Thread.sleep(RF.aSIFSTime); //Sleeps to wait SIFS
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
