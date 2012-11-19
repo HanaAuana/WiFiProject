@@ -82,12 +82,7 @@ public class LinkLayer implements Dot11Interface {
 	public int send(short dest, byte[] data, int len) {
 		output.println("LinkLayer: Sending " + len + " bytes to " + dest);
 
-		byte[] fakeCRC = new byte[4]; //Actual CRC stuff not implemented yet
-
-		fakeCRC[0] = 15;
-		fakeCRC[1] = 15;
-		fakeCRC[2] = 15;
-		fakeCRC[3] = 15;
+		byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 
 		Packet p = new Packet(0, nextSeqNum(dest), dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
@@ -253,12 +248,7 @@ public class LinkLayer implements Dot11Interface {
 							e.printStackTrace();
 						}
 						
-						byte[] fakeCRC = new byte[4]; //Actual CRC stuff not implemented yet
-
-						fakeCRC[0] = 15;
-						fakeCRC[1] = 15;
-						fakeCRC[2] = 15;
-						fakeCRC[3] = 15;
+						byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 
 						Packet ack = new Packet(1, p.getSeqNum(), p.getSrcAddr(), ourMAC, null, fakeCRC);
 						
