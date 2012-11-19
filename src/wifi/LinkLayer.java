@@ -231,7 +231,6 @@ public class LinkLayer implements Dot11Interface {
 
 		public void run() {
 			while (true) {
-				output.println("I get to run!!!");
 				try {
 					Thread.sleep(10); //Sleeps each time through, in order to not monopolize the CPU
 				} catch (InterruptedException e) {
@@ -270,7 +269,7 @@ public class LinkLayer implements Dot11Interface {
 							e.printStackTrace();
 						}
 						
-						output.println("RF is free: "+ theRF.inUse());
+
 						
 						theRF.transmit(ack.getFrame());
 						output.println("Sent an ACK");
@@ -302,7 +301,7 @@ public class LinkLayer implements Dot11Interface {
 						
 					}
 					else{
-						output.println("Didn't ACK a packet of type: "+ p.getFrameType() + " to address "+ (destAddr&0xffff));
+						output.println("Saw a packet of type: "+ p.getFrameType() + " from address "+ (destAddr&0xffff));
 					}
 				}
 				else{
