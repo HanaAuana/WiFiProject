@@ -83,9 +83,12 @@ public class LinkLayer implements Dot11Interface {
 		output.println("LinkLayer: Sending " + len + " bytes to " + dest);
 
 		byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
+		
+		short seqNum = nextSeqNum(dest);
 
-		Packet p = new Packet(0, nextSeqNum(dest), dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
+		Packet p = new Packet(0, seqNum, dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
+		output.println("NEXT SEQ TEST: Sending packet " + seqNum + "  to " + dest);
 		try {
 			out.put(p); //Puts the created packet into the outgoing queue
 		} catch (InterruptedException e) {
@@ -185,7 +188,7 @@ public class LinkLayer implements Dot11Interface {
 					}
                                                           
 					theRF.transmit(p.getFrame()); // Send the first packet out on the RF layer
-					output.println("SENT PACKET: "+ p.getSeqNum());
+					output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
 					
 					try {
 						Thread.sleep((long) 10);
@@ -194,10 +197,11 @@ public class LinkLayer implements Dot11Interface {
 					}
 					
 					int counter = 0;
-					while(counter < RF.dot11RetryLimit || (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
-						output.println("RESENDING PACKET: "+ p.getSeqNum()+" Attempt number: "+ counter);
-						Packet retryPacket = p;
+					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
+						
+						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
 						retryPacket.setRetry(true);
+						output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
 						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 						
 						try {
@@ -232,25 +236,25 @@ public class LinkLayer implements Dot11Interface {
 					e.printStackTrace();
 				}
 
-				Packet p = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
+				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
 				
-				short destAddr = p.getDestAddr();
+				short destAddr = recvPacket.getDestAddr();
 				
 				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
-					output.println("Packet for us");	
+					output.println("Packet for us: "+ recvPacket.getSeqNum());	
 					
 					
-					if((destAddr&0xffff) == ourMAC && p.getFrameType() == 0){
+					if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 0){
 						
 						try {
-							theLinkLayer.getIn().put(p); // Puts the new Packet into the LinkLayer's inbound queue
+							theLinkLayer.getIn().put(recvPacket); // Puts the new Packet into the LinkLayer's inbound queue
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
 						
 						byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 
-						Packet ack = new Packet(1, p.getSeqNum(), p.getSrcAddr(), ourMAC, null, fakeCRC);
+						Packet ack = new Packet(1, recvPacket.getSeqNum(), recvPacket.getSrcAddr(), ourMAC, null, fakeCRC);
 						
 						
 						try {
@@ -262,36 +266,36 @@ public class LinkLayer implements Dot11Interface {
 
 						
 						theRF.transmit(ack.getFrame());
-						output.println("Sent an ACK");
+						output.println("Sent an ACK: " + ack.getSeqNum());
 					}
-					else if((destAddr&0xffff) == ourMAC && p.getFrameType() == 1){
-						output.println("Saw an ACK");
+					else if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 1){
+						output.println("Saw an ACK: " + recvPacket.getSeqNum());
 						
 						
-						if(theLinkLayer.recievedACKS.containsKey(p.getSrcAddr())){
+						if(theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())){
 							
-							if(theLinkLayer.recievedACKS.get(p.getSrcAddr()).contains(p.getSeqNum())){
-								output.println("Already got this ACK");
+							if(theLinkLayer.recievedACKS.get(recvPacket.getSrcAddr()).contains(recvPacket.getSeqNum())){
+								output.println("Already got this ACK: "+ recvPacket.getSeqNum());
 							}
 							else{
 								
-								theLinkLayer.recievedACKS.get(p.getSrcAddr()).add(p.getSeqNum());
-								output.println("Added an ACK for "+ p.getSeqNum()+ " from "+p.getSrcAddr());
+								theLinkLayer.recievedACKS.get(recvPacket.getSrcAddr()).add(recvPacket.getSeqNum());
+								output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 							}
 							
 						}
 						else{
 							ArrayList<Short> newHost = new ArrayList<Short>();
-							newHost.add(p.getSeqNum());
-							theLinkLayer.recievedACKS.put(p.getSrcAddr(), newHost);
-							output.println("Added an ACK for "+ p.getSeqNum()+ " from "+p.getSrcAddr());
+							newHost.add(recvPacket.getSeqNum());
+							theLinkLayer.recievedACKS.put(recvPacket.getSrcAddr(), newHost);
+							output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 						}
 						
 						
 						
 					}
 					else{
-						output.println("Saw a packet of type: "+ p.getFrameType() + " from address "+ (destAddr&0xffff));
+						output.println("Saw a packet of type: "+ recvPacket.getFrameType() + " from address "+ (destAddr&0xffff));
 					}
 				}
 				else{
