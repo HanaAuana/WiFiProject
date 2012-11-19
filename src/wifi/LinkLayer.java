@@ -23,13 +23,13 @@ public class LinkLayer implements Dot11Interface {
 
 	private static final int QUEUE_SIZE = 10;
 
-	private BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
-	private BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
+	private  BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
+	private  BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
 	
 	private HashMap<Short,Short> sendSequences = new HashMap();
 	private HashMap<Short,Short> recvSequences = new HashMap();
 	
-	private HashMap<Short,ArrayList<Short>> recievedACKS = new HashMap();
+	private  HashMap<Short,ArrayList<Short>> recievedACKS = new HashMap();
 	
 	public BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
 		return in;
