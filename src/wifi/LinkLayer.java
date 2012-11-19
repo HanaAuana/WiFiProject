@@ -193,7 +193,7 @@ public class LinkLayer implements Dot11Interface {
 					output.println("SENT PACKET: "+ p.getSeqNum());
 					
 					try {
-						Thread.sleep((long) 1);
+						Thread.sleep((long) 10);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -206,7 +206,7 @@ public class LinkLayer implements Dot11Interface {
 						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 						
 						try {
-							Thread.sleep((long) 1);
+							Thread.sleep((long) 10);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
