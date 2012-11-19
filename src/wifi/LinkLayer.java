@@ -242,7 +242,7 @@ public class LinkLayer implements Dot11Interface {
 				short destAddr = p.getDestAddr();
 				
 				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
-					output.println("Packet for us");
+					output.println("Packet for us");	
 					
 					
 					if((destAddr&0xffff) == ourMAC && p.getFrameType() == 0){
