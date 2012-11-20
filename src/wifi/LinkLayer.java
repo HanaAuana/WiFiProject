@@ -75,6 +75,21 @@ public class LinkLayer implements Dot11Interface {
 		this.sendSequences.put(addr, (short)(nextSeq));
 	    return nextSeq;
 	}
+	
+	
+	public short gotRecvSeqNum(short addr){
+		short nextSeq;
+		if(sendSequences.containsKey(addr)){
+			nextSeq = (short) (sendSequences.get(addr)+1);
+		}
+		else{
+			nextSeq = 0;
+		}
+		this.recvSequences.put(addr, (short)(nextSeq));
+	    return nextSeq;
+	}
+	
+	
 	/**
 	 * Send method takes a destination, a buffer (array) of data, and the number
 	 * of bytes to send. See docs for full description.
@@ -197,7 +212,11 @@ public class LinkLayer implements Dot11Interface {
 					}
 					
 					int counter = 0;
+<<<<<<< HEAD
 					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
+=======
+					while((counter < RF.dot11RetryLimit) && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&(theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false))){
+>>>>>>> still doesnt work
 						
 						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
 						retryPacket.setRetry(true);
@@ -251,6 +270,10 @@ public class LinkLayer implements Dot11Interface {
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
+						
+						short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
+						output.println("Got: "+ recvPacket.getSeqNum()+ " next is "+ nextSeq);	
+						
 						
 						byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 
