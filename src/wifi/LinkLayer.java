@@ -23,7 +23,9 @@ public class LinkLayer implements Dot11Interface {
 
 	private static final int QUEUE_SIZE = 10;
 	private static final int FULL_DEBUG = -1;
-	private int debug = 0;
+	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	private int debug = -1; //SET TO 0 BEFORE TURNING IN!!!!!!!
+	//!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	private  BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
 	private  BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
@@ -54,7 +56,7 @@ public class LinkLayer implements Dot11Interface {
 		this.ourMAC = ourMAC;
 		this.output = output;
 		theRF = new RF(null, null);
-		output.println("LinkLayer: Constructor ran.");
+		output.println("LinkLayer initialized with MAC address of " + ourMAC);
 
 		Receiver theReceiver = new Receiver(this, theRF); //Creates the sender and receiver instances
 		Sender theSender = new Sender(this, theRF);
@@ -97,7 +99,7 @@ public class LinkLayer implements Dot11Interface {
 	 * of bytes to send. See docs for full description.
 	 */
 	public int send(short dest, byte[] data, int len) {
-		output.println("LinkLayer: Sending " + len + " bytes to " + dest);
+		//output.println("Sending " + len + " bytes to " + dest);
 
 		byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 		
@@ -105,7 +107,9 @@ public class LinkLayer implements Dot11Interface {
 
 		Packet p = new Packet(0, seqNum, dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
-		output.println("NEXT SEQ TEST: Sending packet " + seqNum + "  to " + dest);
+		if(debug == -1){
+			output.println("Putting packet with " + seqNum + "  and destination " + dest + " in RF.");
+		}
 		try {
 			out.put(p); //Puts the created packet into the outgoing queue
 		} catch (InterruptedException e) {
@@ -178,8 +182,8 @@ public class LinkLayer implements Dot11Interface {
 		default:
 			output.println("Command " + cmd + " not recognized.");
 		}
-		output.println("LinkLayer: Sending command " + cmd + " with value "
-				+ val);
+		//output.println("LinkLayer: Sending command " + cmd + " with value "
+				//+ val);
 		return 0;
 	}
 
@@ -215,10 +219,10 @@ public class LinkLayer implements Dot11Interface {
 					}
                                                           
 					theRF.transmit(p.getFrame()); // Send the first packet out on the RF layer
-					output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
+					//output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
 					
 					if(debug == FULL_DEBUG){
-						output.println("Sent packet with sequence number" + p.getSeqNum() + " to MAC address " + p.getDestAddr());
+						output.println("Sent packet with sequence number " + p.getSeqNum() + " to MAC address " + p.getDestAddr());
 					}
 					
 					try {
@@ -235,10 +239,10 @@ public class LinkLayer implements Dot11Interface {
 						retryPacket.setRetry(true);
 						
 						if(debug == FULL_DEBUG){
-							output.println("Resending packet with sequence "+ p.getSeqNum()+". Attempt number: "+ counter);
+							output.println("Resending packet with sequence "+ retryPacket.getSeqNum()+". Attempt number: "+ counter);
 						}
 						
-						output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
+						//output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
 						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 						
 						try {
@@ -278,10 +282,10 @@ public class LinkLayer implements Dot11Interface {
 				short destAddr = recvPacket.getDestAddr();
 				
 				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
-					output.println("Packet for us: "+ recvPacket.getSeqNum());	
+					//output.println("Packet for us: "+ recvPacket.getSeqNum());	
 					
 					if(debug == FULL_DEBUG){
-						output.println("Packet for us arrived from " + recvPacket.srcAddr);
+						output.println("Packet for us arrived from " + recvPacket.srcAddr + " with sequence number " + recvPacket.getSeqNum());
 					}
 					
 					if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 0){
