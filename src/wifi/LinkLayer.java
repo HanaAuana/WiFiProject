@@ -31,11 +31,11 @@ public class LinkLayer implements Dot11Interface {
 	
 	private  HashMap<Short,ArrayList<Short>> recievedACKS = new HashMap();
 	
-	public synchronized BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
+	public BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
 		return in;
 	}
 
-	public synchronized BlockingQueue<Packet> getOut() {
+	public BlockingQueue<Packet> getOut() {
 		return out;
 	}
 
@@ -214,6 +214,7 @@ public class LinkLayer implements Dot11Interface {
 					int counter = 0;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
 =======
 					while((counter < RF.dot11RetryLimit) && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&(theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false))){
@@ -221,6 +222,9 @@ public class LinkLayer implements Dot11Interface {
 =======
 					while((counter < RF.dot11RetryLimit) && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
 >>>>>>> 09048d5bd9c46d3253a528a956e031ee54284169
+=======
+					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
+>>>>>>> Revert "more stupid ack stuff that doesnt work"
 						
 						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
 						retryPacket.setRetry(true);
@@ -235,7 +239,6 @@ public class LinkLayer implements Dot11Interface {
 						
 						counter++;
 					}
-					output.println("Exited, counter is:  "+ counter+ ". Do we have the seq "+ p.getSeqNum()  + " from host "+ p.getDestAddr()+ " ? :"+ (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)); 
 				}
 			}
 		}
@@ -261,11 +264,9 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
-				output.println("Recieved Packet : "+ recvPacket.getSeqNum());	
 				
 				short destAddr = recvPacket.getDestAddr();
 				
-
 				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
 					output.println("Packet for us: "+ recvPacket.getSeqNum());	
 					
