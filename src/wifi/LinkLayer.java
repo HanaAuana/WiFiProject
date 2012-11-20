@@ -31,11 +31,11 @@ public class LinkLayer implements Dot11Interface {
 	
 	private  HashMap<Short,ArrayList<Short>> recievedACKS = new HashMap();
 	
-	public BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
+	public synchronized BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
 		return in;
 	}
 
-	public BlockingQueue<Packet> getOut() {
+	public synchronized BlockingQueue<Packet> getOut() {
 		return out;
 	}
 
@@ -119,14 +119,16 @@ public class LinkLayer implements Dot11Interface {
 	 */
 	public int recv(Transmission t) { //Called by the above layer when it wants to receive data
 
-		Packet p; 
+		Packet p;
 		try {
 			p = in.take();  //Grabs the next packet from the incoming queue
-			byte[] data = p.getData();  //Extracts the necessary parts from the packet and puts them into the supplied transmission object
-			t.setSourceAddr((short) p.getSrcAddr());
-			t.setDestAddr((short) p.getDestAddr());
-			t.setBuf(data);
-			return data.length; //Returns the length of the data recieved
+			if(p.getSeqNum() < recvSequences.get(p.getSrcAddr())){
+				byte[] data = p.getData();  //Extracts the necessary parts from the packet and puts them into the supplied transmission object
+				t.setSourceAddr((short) p.getSrcAddr());
+				t.setDestAddr((short) p.getDestAddr());
+				t.setBuf(data);
+				return data.length; //Returns the length of the data recieved
+			}
 
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -262,13 +264,18 @@ public class LinkLayer implements Dot11Interface {
 					
 					if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 0){
 						
+						short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
+						if(recvPacket.getSeqNum() > nextSeq){
+							
+							output.println("Sequence out of order, expected: "+ nextSeq+ " got: "+ recvPacket.getSeqNum() );
+						}
 						try {
 							theLinkLayer.getIn().put(recvPacket); // Puts the new Packet into the LinkLayer's inbound queue
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
 						
-						short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
+						
 						output.println("Got: "+ recvPacket.getSeqNum()+ " next is "+ nextSeq);	
 						
 						
