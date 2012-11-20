@@ -224,7 +224,11 @@ public class LinkLayer implements Dot11Interface {
 >>>>>>> 09048d5bd9c46d3253a528a956e031ee54284169
 =======
 					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
+<<<<<<< HEAD
 >>>>>>> Revert "more stupid ack stuff that doesnt work"
+=======
+>>>>>>> parent of a45570e... more stupid ack stuff that doesnt work
+>>>>>>> mandatory commit
 						
 						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
 						retryPacket.setRetry(true);
