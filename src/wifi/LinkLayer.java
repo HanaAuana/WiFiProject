@@ -321,21 +321,21 @@ public class LinkLayer implements Dot11Interface {
 						}
 						
 						theRF.transmit(ack.getFrame());
-						output.println("Sent an ACK: " + ack.getSeqNum());
+						//output.println("Sent an ACK: " + ack.getSeqNum());
 					}
 					else if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 1){
-						output.println("Saw an ACK: " + recvPacket.getSeqNum());
+						//output.println("Saw an ACK: " + recvPacket.getSeqNum());
 						
 						
 						if(theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())){
 							
 							if(theLinkLayer.recievedACKS.get(recvPacket.getSrcAddr()).contains(recvPacket.getSeqNum())){
-								output.println("Already got this ACK: "+ recvPacket.getSeqNum());
+								//output.println("Already got this ACK: "+ recvPacket.getSeqNum());
 							}
 							else{
 								
 								theLinkLayer.recievedACKS.get(recvPacket.getSrcAddr()).add(recvPacket.getSeqNum());
-								output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
+								//output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 							}
 							
 						}
@@ -343,18 +343,18 @@ public class LinkLayer implements Dot11Interface {
 							ArrayList<Short> newHost = new ArrayList<Short>();
 							newHost.add(recvPacket.getSeqNum());
 							theLinkLayer.recievedACKS.put(recvPacket.getSrcAddr(), newHost);
-							output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
+							//output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 						}
 						
 						
 						
 					}
 					else{
-						output.println("Saw a packet of type: "+ recvPacket.getFrameType() + " from address "+ (destAddr&0xffff));
+						//output.println("Saw a packet of type: "+ recvPacket.getFrameType() + " from address "+ (destAddr&0xffff));
 					}
 				}
 				else{
-					output.println("Addr: "+ destAddr);
+
 				}
 			}
 		}
