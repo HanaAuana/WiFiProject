@@ -9,7 +9,7 @@ public class Main {
 	
 	public static void testPacketInOut_C1(){
 		int type = 7;
-		short seq = 1;
+		short seq = 9;
 		short dest = 534;
 		short src = 256;
 		int retry = 1;
@@ -57,7 +57,7 @@ public class Main {
 	
 	public static void testPacketInOut_C2(){
 		int type = 7;
-		short seq = 1;
+		short seq = 2;
 		short dest = 1;
 		short src = 1;
 		int retry = 1;
@@ -81,7 +81,12 @@ public class Main {
 		System.out.println();
 		
 		Packet test_1 = new Packet(type, seq, dest, src, data, crc);
+		
 		byte[] fullframe = test_1.getFrame();
+		System.out.println("Byte 0 (1): " + fullframe[0]);
+		System.out.println("Byte 1 (1): " + fullframe[1]);
+		
+		System.out.println("Packet Two");
 		Packet test_2 = new Packet(fullframe);
 
 		System.out.println("Data Out: ");

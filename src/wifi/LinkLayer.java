@@ -108,7 +108,7 @@ public class LinkLayer implements Dot11Interface {
 		Packet p = new Packet(0, seqNum, dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
 		if(debug == -1){
-			output.println("Putting packet with " + seqNum + "  and destination " + dest + " in RF.");
+			output.println("Putting packet with sequence number " + seqNum + "  and destination " + dest + " in RF.");
 		}
 		try {
 			out.put(p); //Puts the created packet into the outgoing queue
@@ -226,7 +226,7 @@ public class LinkLayer implements Dot11Interface {
 					}
 					
 					try {
-						Thread.sleep((long) 10);
+						Thread.sleep((long) 1000);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
@@ -278,6 +278,14 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
+				
+				//TEST
+				output.println("\t Type: " + recvPacket.getFrameType());
+				output.println("\t Retry: " + recvPacket.isRetry());
+				output.println("\t SeqNum: " + recvPacket.getSeqNum());
+				output.println("\t DestAddr: " + recvPacket.getDestAddr());
+				output.println("\t SrcAddr: " + recvPacket.getSrcAddr());
+				//END TEST				
 				
 				short destAddr = recvPacket.getDestAddr();
 				

@@ -53,7 +53,12 @@ public class Packet {
 		setCrc(tempCrc);
 		setFrameType((frame[0] >> 5) & 0x7);
 		retry = ((frame[0] >> 4) & 0x1);
-		setSeqNum((short)((frame[1])| ((frame[0]) << 8) & 0xFFF));
+		//setSeqNum((short)(buf.getShort(0) & 0xFFF));
+		//System.out.println(("Short: " + buf.getShort(0)));
+		//System.out.println(("Byte 0(2): " + frame[0]));
+		//System.out.println(("Byte 1(2): " + frame[1]));
+		int temp = (((frame[0]) & 0xF) << 8) | frame[1];
+		setSeqNum((short)temp);
 	}
 
 	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
@@ -67,7 +72,8 @@ public class Packet {
 
 		setData(data); //set data first to short circuit
 		setFrameType(frameType);
-		setSeqNum(seqNum);		
+		setSeqNum(seqNum);
+		//System.out.println("Seq: " + this.getSeqNum());
 		setDestAddr(destAddr);
 		setSrcAddr(srcAddr);
 		setRetry(false);
@@ -76,7 +82,9 @@ public class Packet {
 
 	private short makeControl(int frameType, int retry, short seqNum){
 		int temp;
-		temp = (frameType << 13) | (retry << 12) | seqNum;
+		temp = (frameType << 13) | (retry << 12) | (seqNum & 0xFFF);
+		//System.out.println((frameType << 13) | (retry << 12) | (seqNum & 0xFFF));
+		//System.out.println(seqNum);
 		//Test Shifting
 		//		System.out.println("frameType: " + (frameType << 5));
 		//		System.out.println("retry: " + retry);
@@ -96,6 +104,7 @@ public class Packet {
 		}
 
 		//put in ByteBuffer
+		//System.out.println("Frame");
 		short control = makeControl(frameType,this.retry, seqNum);
 		buf.putShort(0, control); //put control bytes
 	}
@@ -113,6 +122,7 @@ public class Packet {
 		}
 
 		//put in ByteBuffer
+		//System.out.println("Retry");
 		short control = makeControl(frameType,this.retry, seqNum);
 		buf.putShort(0, control); //put control bytes
 	}
@@ -135,6 +145,7 @@ public class Packet {
 		}
 
 		//put in ByteBuffer
+		//System.out.println("SeqNum");
 		short control = makeControl(frameType,this.retry, seqNum);
 		buf.putShort(0, control); //put control bytes
 	}
