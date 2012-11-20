@@ -31,11 +31,11 @@ public class LinkLayer implements Dot11Interface {
 	
 	private  HashMap<Short,ArrayList<Short>> recievedACKS = new HashMap();
 	
-	public BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
+	public synchronized BlockingQueue<Packet> getIn() { //These Queues will facilitate communication between the LinkLayer and its Sender and Receiver helper classes
 		return in;
 	}
 
-	public BlockingQueue<Packet> getOut() {
+	public synchronized BlockingQueue<Packet> getOut() {
 		return out;
 	}
 
@@ -197,7 +197,7 @@ public class LinkLayer implements Dot11Interface {
 					}
 					
 					int counter = 0;
-					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
+					while((counter < RF.dot11RetryLimit) && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
 						
 						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
 						retryPacket.setRetry(true);
@@ -212,6 +212,7 @@ public class LinkLayer implements Dot11Interface {
 						
 						counter++;
 					}
+					output.println("Exited, counter is:  "+ counter+ ". Do we have the seq "+ p.getSeqNum()  + " from host "+ p.getDestAddr()+ " ? :"+ (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)); 
 				}
 			}
 		}
@@ -237,9 +238,11 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
+				output.println("Recieved Packet : "+ recvPacket.getSeqNum());	
 				
 				short destAddr = recvPacket.getDestAddr();
 				
+
 				if((destAddr&0xffff) == ourMAC || (destAddr&0xffff) == 65535){
 					output.println("Packet for us: "+ recvPacket.getSeqNum());	
 					
