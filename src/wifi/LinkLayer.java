@@ -125,7 +125,7 @@ public class LinkLayer implements Dot11Interface {
 		try {
 			p = in.take();  //Grabs the next packet from the incoming queue
 			if(p.getSeqNum() < recvSequences.get(p.getSrcAddr())){
-				
+				output.println("Already got this");
 			}
 			else{
 				byte[] data = p.getData();  //Extracts the necessary parts from the packet and puts them into the supplied transmission object
