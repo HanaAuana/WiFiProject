@@ -1,7 +1,7 @@
 package wifi;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
+import java.util.zip.CRC32;
 
 /**
  * @author Alexander  King & Michael Lim
@@ -13,13 +13,8 @@ import java.util.Arrays;
 
 public class Packet {
 
-	int frameType;
-	int retry;
-	short seqNum;
-	short destAddr;
-	short srcAddr;
 	byte[] data;
-	byte[] crc;
+	int crc;
 	ByteBuffer buf;
 
 	public Packet(byte[] frame){
@@ -33,36 +28,10 @@ public class Packet {
 
 		buf = ByteBuffer.allocate(frame.length);
 		buf = ByteBuffer.wrap(frame);
-
-		byte[] tempData = new byte[frame.length-10];
-		for(int i=6;i<frame.length-4;i++){ //make sub data[]
-			tempData[i-6] = frame[i];
-		}
-		//Fill packet data
-		setData(tempData);
-		//setDestAddr((short)((frame[3] | frame[2] << 8) & 0xFFF));
-		setSrcAddr(buf.getShort(4));
-		setDestAddr(buf.getShort(2));
-
-		byte[] tempCrc = new byte[4];
-		tempCrc[0] = frame[frame.length-4];
-		tempCrc[1] = frame[frame.length-3];
-		tempCrc[2] = frame[frame.length-2];
-		tempCrc[3] = frame[frame.length-1];
-
-		setCrc(tempCrc);
-		setFrameType((frame[0] >> 5) & 0x7);
-		retry = ((frame[0] >> 4) & 0x1);
-		//setSeqNum((short)(buf.getShort(0) & 0xFFF));
-		//System.out.println(("Short: " + buf.getShort(0)));
-		//System.out.println(("Byte 0(2): " + frame[0]));
-		//System.out.println(("Byte 1(2): " + frame[1]));
-		int temp = (((frame[0]) & 0xF) << 8) | frame[1];
-		setSeqNum((short)temp);
 	}
 
-	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data, byte[] crc){
-		
+	public Packet(int frameType, short seqNum, short destAddr, short srcAddr, byte[] data){
+
 		if(data != null){
 			buf = ByteBuffer.allocate(10 + data.length);
 		}
@@ -72,63 +41,41 @@ public class Packet {
 
 		setData(data); //set data first to short circuit
 		setFrameType(frameType);
+		setRetry(false);
 		setSeqNum(seqNum);
-		//System.out.println("Seq: " + this.getSeqNum());
 		setDestAddr(destAddr);
 		setSrcAddr(srcAddr);
-		setRetry(false);
-		setCrc(crc);
-	}
-
-	private short makeControl(int frameType, int retry, short seqNum){
-		int temp;
-		temp = (frameType << 13) | (retry << 12) | (seqNum & 0xFFF);
-		//System.out.println((frameType << 13) | (retry << 12) | (seqNum & 0xFFF));
-		//System.out.println(seqNum);
-		//Test Shifting
-		//		System.out.println("frameType: " + (frameType << 5));
-		//		System.out.println("retry: " + retry);
-		//		System.out.println("seqNum: " + seqNum);
-		//		System.out.println("byte: " + temp);
-		//		System.out.println("makeControl: " + temp);
-		//		System.out.println("Making control: " + temp);
-		return (short)temp;
 	}
 
 	public void setFrameType(int type){
+
 		//Check frame type
 		if(type < 0 || type > 7){
 			throw new IllegalArgumentException("Invalid frameType.");
 		}else{
-			frameType = type;
+			//Clear bits
+			buf.put(0,(byte)(buf.get(0) & 0x1F));
+			//Set bits
+			buf.put(0,(byte)(buf.get(0) | (type << 5)));
 		}
-
-		//put in ByteBuffer
-		//System.out.println("Frame");
-		short control = makeControl(frameType,this.retry, seqNum);
-		buf.putShort(0, control); //put control bytes
 	}
 
 	public int getFrameType(){
-		return frameType;
+		return ((buf.get(0) & 0xE0) >>> 5);
 	}
 
 	public void setRetry(boolean input){
-		if (input){
-			retry = 1;
-		}
-		else{
-			retry = 0;
-		}
 
-		//put in ByteBuffer
-		//System.out.println("Retry");
-		short control = makeControl(frameType,this.retry, seqNum);
-		buf.putShort(0, control); //put control bytes
+		//Clear bit
+		buf.put(0,(byte)(buf.get(0) & 0xFFFFFFEF));
+		if (input){
+			//Set bit
+			buf.put(0,(byte)(buf.get(0) | 0x10));
+		}
 	}
 
 	public boolean isRetry(){
-		if(retry == 1){
+		if(((buf.get(0)>>4)& 0x1) == 1){
 			return true;
 		}
 		else{
@@ -141,17 +88,16 @@ public class Packet {
 		if(seq < 0 || seq > 4095){
 			throw new IllegalArgumentException("Invalid seqNum.");
 		}else{
-			seqNum = seq;
+			//Clear bits
+			buf.put(0,(byte)(buf.get(0) & 0xF0));
+			//Set bits
+			buf.put(0,(byte)(buf.get(0) | (seq >>> 8)));
+			buf.put(1,(byte)(seq & 0xFF));
 		}
-
-		//put in ByteBuffer
-		//System.out.println("SeqNum");
-		short control = makeControl(frameType,this.retry, seqNum);
-		buf.putShort(0, control); //put control bytes
 	}
 
 	public short getSeqNum(){
-		return seqNum;
+		return (short)(buf.getShort(0) & 0xFFF);
 	}
 
 	public void setDestAddr(short addr){
@@ -159,15 +105,12 @@ public class Packet {
 		if((addr&0xff) < 0 || (addr&0xff) > 65535){
 			throw new IllegalArgumentException("Invalid destAddr.");
 		}else{
-			destAddr = addr;
+			buf.putShort(2, addr);
 		}
-
-		//put in ByteBuffer
-		buf.putShort(2, destAddr); // put destAddr bytes
 	}
 
 	public short getDestAddr(){
-		return destAddr;
+		return buf.getShort(2);
 	}
 
 	public void setSrcAddr(short addr){
@@ -175,61 +118,50 @@ public class Packet {
 		if((addr&0xff) < 0 || (addr&0xff) > 65535){
 			throw new IllegalArgumentException("Invalid srcAddr.");
 		}else{
-			this.srcAddr = addr;
+			buf.putShort(4, addr); // put srcAddr bytes
 		}
-
-		//put in ByteBuffer
-		buf.putShort(4, srcAddr); // put srcAddr bytes
 	}
 
 	public short getSrcAddr(){
-		return srcAddr;
+		return buf.getShort(4);
 	}
 
 	public void setData(byte[] inData){
-		
-
 		if(inData != null){
-			
+
 			//Check data
 			if(inData.length > 2038){
 				throw new IllegalArgumentException("Invalid data.");
 			}else{
-				data = inData;
+				for(int i=0;i<inData.length;i++){ //put data bytes
+					buf.put(i+6,inData[i]);
+				}
 			}
-			
-			//put in ByteBuffer
-			for(int i=0;i<data.length;i++){ //put data bytes
-				buf.put(i+6,data[i]);
-			}
-			
-			
 		}
-
-
 	}
 
 	public byte[] getData(){
-		return data;
+		byte[] temp = new byte[buf.limit() - 10];
+		for(int i=0;i<temp.length;i++){ //put data bytes
+			temp[i]= buf.get(i+6);
+		}
+		return temp;
 	}
 
-
-	public void setCrc(byte[] input){
-		if(input == null || input.length > 4){
-			throw new IllegalArgumentException("Invalid data.");
-		}else{
-			crc = input;
-		}
-		for(int i=0;i<4;i++){ //put crc bytes
-			buf.put(buf.limit()-(4-i),crc[i]);
-		}
+	public void setCRC(){
+		CRC32 crc32 = new CRC32();
+		crc32.update(buf.array(),0,buf.limit()-4);
+		int crc = (int)crc32.getValue();
+		buf.putInt(buf.limit()-4, crc);
 	}
 
-	public byte[] getCrc(){
+	public int getCRC(){
+		int crc = buf.getInt(buf.limit()-4);
 		return crc;
 	}
 
 	public byte[] getFrame(){
+		setCRC();
 		return buf.array();
 	}
 

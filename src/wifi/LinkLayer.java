@@ -101,11 +101,11 @@ public class LinkLayer implements Dot11Interface {
 	public int send(short dest, byte[] data, int len) {
 		//output.println("Sending " + len + " bytes to " + dest);
 
-		byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
+		//byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 		
 		short seqNum = nextSeqNum(dest);
 
-		Packet p = new Packet(0, seqNum, dest, ourMAC, data, fakeCRC); //Builds a packet using the supplied data
+		Packet p = new Packet(0, seqNum, dest, ourMAC, data); //Builds a packet using the supplied data
                                                                           //Some parts of the packet are fake for now
 		if(debug == -1){
 			output.println("Putting packet with sequence number " + seqNum + "  and destination " + dest + " in RF.");
@@ -235,7 +235,7 @@ public class LinkLayer implements Dot11Interface {
 
 					while(counter < RF.dot11RetryLimit && (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())&&theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)){
 
-						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData(), p.getCrc());
+						Packet retryPacket = new Packet(p.getFrameType(),p.getSeqNum(),p.getDestAddr(), p.getSrcAddr(), p.getData());
 						retryPacket.setRetry(true);
 						
 						if(debug == FULL_DEBUG){
@@ -293,7 +293,7 @@ public class LinkLayer implements Dot11Interface {
 					//output.println("Packet for us: "+ recvPacket.getSeqNum());	
 					
 					if(debug == FULL_DEBUG){
-						output.println("Packet for us arrived from " + recvPacket.srcAddr + " with sequence number " + recvPacket.getSeqNum());
+						output.println("Packet for us arrived from " + recvPacket.getSrcAddr() + " with sequence number " + recvPacket.getSeqNum());
 					}
 					
 					if((destAddr&0xffff) == ourMAC && recvPacket.getFrameType() == 0){
@@ -313,9 +313,9 @@ public class LinkLayer implements Dot11Interface {
 						output.println("Got: "+ recvPacket.getSeqNum()+ " next is "+ nextSeq);	
 						
 						
-						byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
+						//byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented yet
 
-						Packet ack = new Packet(1, recvPacket.getSeqNum(), recvPacket.getSrcAddr(), ourMAC, null, fakeCRC);
+						Packet ack = new Packet(1, recvPacket.getSeqNum(), recvPacket.getSrcAddr(), ourMAC, null);
 						
 						
 						try {
