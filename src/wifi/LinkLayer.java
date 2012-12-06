@@ -32,6 +32,12 @@ public class LinkLayer implements Dot11Interface {
 	public static final int BAD_MAC_ADDRESS = 8;
 	public static final int ILLEGAL_ARGUMENT = 9;
 	public static final int INSUFFICIENT_BUFFER_SPACE = 10;
+	
+	public static final int DEFAULT_WAIT = 1;
+	public static final int WAIT_ACK = 2;
+	public static final int BUSY_WAIT = 3;
+	public static final int SLOT_WAIT = 4;
+	public static final int IDLE = 5;
 
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;

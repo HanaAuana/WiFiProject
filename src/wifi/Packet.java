@@ -166,14 +166,29 @@ public class Packet {
 	}
 
 	public String toString(){
-		String toString = "";
-		for(int i = 0;i <getFrame().length; i++){
-			if(i<getFrame().length){
-				toString = toString + (getFrame()[i] + " ");
-			}else{
-				toString = toString + (getFrame()[i]);
-			}
+		String type;
+		switch(getFrameType()){
+		case 0:
+			type = "DATA";
+			break;
+		case 1:
+			type = "ACK";
+			break;
+		case 2:
+			type = "BEACON";
+			break;
+		case 4:
+			type = "CTS";
+			break;
+		case 5:
+			type = "RTS";
+			break;
+		default:
+			type = "UNKNOWN";
 		}
-		return toString;
+		String out = "<" + type + " " + getSeqNum() + " " + getSrcAddr() + "-->" +
+				getDestAddr() + " [" + getData().length + " bytes] (" + getCRC() + ")>"  ;
+		
+		return out;
 	}
 }
