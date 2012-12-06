@@ -279,6 +279,9 @@ public class LinkLayer implements Dot11Interface {
 								+ p.getSeqNum() + " to MAC address "
 								+ p.getDestAddr());
 					}
+					
+					
+					//ACK timeout should be around 2615 ms + whatever from the IEEE spec
 
 					try {
 						Thread.sleep((long) 1000);
@@ -313,8 +316,8 @@ public class LinkLayer implements Dot11Interface {
 																// out on the RF
 																// layer
 
-						try {
-							Thread.sleep((long) 10);
+						try {                                                     //TODO still need to round to nearest 50 ms
+							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
