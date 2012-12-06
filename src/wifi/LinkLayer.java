@@ -21,11 +21,16 @@ public class LinkLayer implements Dot11Interface {
 	private short ourMAC; // The address we are using
 	private PrintWriter output; // The output stream we'll write to
 
-	private static final int QUEUE_SIZE = 10;
+	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
+	
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	private int debug = -1; // SET TO 0 BEFORE TURNING IN!!!!!!!
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	private boolean randomSlots = true;
+	
+	private int beaconDelay = 5;
+	
 
 	private BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
 	private BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
@@ -180,7 +185,7 @@ public class LinkLayer implements Dot11Interface {
 	/**
 	 * Passes command info to your link layer. See docs for full description.
 	 */
-	public int command(int cmd, int val) {
+	public int command (int cmd, int val) {
 		switch (cmd) {
 		case 0:
 			output.println("Options & Settings:");
@@ -200,8 +205,24 @@ public class LinkLayer implements Dot11Interface {
 			output.println("Setting debug to " + debug);
 			break;
 		case 2:
+			if(val == 0){
+				output.println("Using random slot times");
+				randomSlots = true;
+			}
+			else{
+				output.println("Using maximum slot times");
+				randomSlots = false;
+			}
 			break;
 		case 3:
+			if(val < 0){
+				beaconDelay = -1;
+				output.println("Disabling beacons");
+			}
+			else{
+				output.println("Using a beacon delay of "+ val + " seconds");
+				beaconDelay = val;
+			}
 			break;
 		default:
 			output.println("Command " + cmd + " not recognized.");
