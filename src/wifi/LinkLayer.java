@@ -21,16 +21,28 @@ public class LinkLayer implements Dot11Interface {
 	private short ourMAC; // The address we are using
 	private PrintWriter output; // The output stream we'll write to
 
+	private int currentStatus;
+	public static final int SUCCESS = 1;
+	public static final int UNSPECIFIED_ERROR = 2;
+	public static final int RF_INIT_FAILED = 3;
+	public static final int TX_DELIVERED = 4;
+	public static final int TX_FAILED = 5;
+	public static final int BAD_BUF_SIZE = 6;
+	public static final int BAD_ADDRESS = 7;
+	public static final int BAD_MAC_ADDRESS = 8;
+	public static final int ILLEGAL_ARGUMENT = 9;
+	public static final int INSUFFICIENT_BUFFER_SPACE = 10;
+
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
-	
+
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	private int debug = -1; // SET TO 0 BEFORE TURNING IN!!!!!!!
+	private int debug = FULL_DEBUG; // SET TO 0 BEFORE TURNING IN!!!!!!!
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
 	private boolean randomSlots = true;
-	
+
 	private int beaconDelay = 5;
-	
 
 	private BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
 	private BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
@@ -118,15 +130,12 @@ public class LinkLayer implements Dot11Interface {
 																// using the
 																// supplied data
 		// Some parts of the packet are fake for now
-		
-
-
 
 		if (out.size() < QUEUE_SIZE) {
-			
-			//System.err.println("QUEUE has " + out.size() + " elements");
-			
-			if (debug == -1) {
+
+			// System.err.println("QUEUE has " + out.size() + " elements");
+
+			if (debug == FULL_DEBUG) {
 				output.println("Putting packet with sequence number " + seqNum
 						+ "  and destination " + dest + " in RF.");
 			}
@@ -134,13 +143,13 @@ public class LinkLayer implements Dot11Interface {
 			try {
 				out.put(p); // Puts the created packet into the outgoing queue
 			} catch (InterruptedException e) {
-				// Auto-generated catch block
+				this.currentStatus = UNSPECIFIED_ERROR;
 				e.printStackTrace();
 			}
 			return len;
 
 		} else {
-			//System.err.println("TOO FULL");
+			currentStatus = INSUFFICIENT_BUFFER_SPACE;
 			return 0;
 		}
 	}
@@ -168,6 +177,7 @@ public class LinkLayer implements Dot11Interface {
 			}
 
 		} catch (InterruptedException e) {
+			currentStatus = UNSPECIFIED_ERROR;
 			e.printStackTrace();
 		}
 		return -1;
@@ -185,7 +195,7 @@ public class LinkLayer implements Dot11Interface {
 	/**
 	 * Passes command info to your link layer. See docs for full description.
 	 */
-	public int command (int cmd, int val) {
+	public int command(int cmd, int val) {
 		switch (cmd) {
 		case 0:
 			output.println("Options & Settings:");
@@ -205,22 +215,20 @@ public class LinkLayer implements Dot11Interface {
 			output.println("Setting debug to " + debug);
 			break;
 		case 2:
-			if(val == 0){
+			if (val == 0) {
 				output.println("Using random slot times");
 				randomSlots = true;
-			}
-			else{
+			} else {
 				output.println("Using maximum slot times");
 				randomSlots = false;
 			}
 			break;
 		case 3:
-			if(val < 0){
+			if (val < 0) {
 				beaconDelay = -1;
 				output.println("Disabling beacons");
-			}
-			else{
-				output.println("Using a beacon delay of "+ val + " seconds");
+			} else {
+				output.println("Using a beacon delay of " + val + " seconds");
 				beaconDelay = val;
 			}
 			break;
@@ -251,6 +259,7 @@ public class LinkLayer implements Dot11Interface {
 					Thread.sleep(10); // Sleeps each time through, in order to
 										// not monopolize the CPU
 				} catch (InterruptedException e) {
+					currentStatus = UNSPECIFIED_ERROR;
 					e.printStackTrace();
 				}
 
@@ -266,6 +275,7 @@ public class LinkLayer implements Dot11Interface {
 					try {
 						p = theLinkLayer.getOut().take();
 					} catch (InterruptedException e) {
+						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
 					}
 
@@ -283,6 +293,7 @@ public class LinkLayer implements Dot11Interface {
 					try {
 						Thread.sleep((long) 1000);
 					} catch (InterruptedException e) {
+						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
 					}
 
@@ -316,6 +327,7 @@ public class LinkLayer implements Dot11Interface {
 						try {
 							Thread.sleep((long) 10);
 						} catch (InterruptedException e) {
+							currentStatus = UNSPECIFIED_ERROR;
 							e.printStackTrace();
 						}
 
@@ -344,6 +356,7 @@ public class LinkLayer implements Dot11Interface {
 					Thread.sleep(10); // Sleeps each time through, in order to
 										// not monopolize the CPU
 				} catch (InterruptedException e) {
+					currentStatus = UNSPECIFIED_ERROR;
 					e.printStackTrace();
 				}
 
@@ -378,7 +391,8 @@ public class LinkLayer implements Dot11Interface {
 					}
 
 					if ((destAddr & 0xffff) == ourMAC
-							&& recvPacket.getFrameType() == 0 && theLinkLayer.getIn().size() < QUEUE_SIZE) {
+							&& recvPacket.getFrameType() == 0
+							&& theLinkLayer.getIn().size() < QUEUE_SIZE) {
 
 						short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
 						if (recvPacket.getSeqNum() > nextSeq) {
@@ -396,14 +410,12 @@ public class LinkLayer implements Dot11Interface {
 																	// inbound
 																	// queue
 						} catch (InterruptedException e) {
+							currentStatus = UNSPECIFIED_ERROR;
 							e.printStackTrace();
 						}
 
 						output.println("Got: " + recvPacket.getSeqNum()
 								+ " next is " + nextSeq);
-
-						// byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff
-						// not implemented yet
 
 						Packet ack = new Packet(1, recvPacket.getSeqNum(),
 								recvPacket.getSrcAddr(), ourMAC, null);
