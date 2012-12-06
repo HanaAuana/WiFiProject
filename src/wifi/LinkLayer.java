@@ -36,9 +36,7 @@ public class LinkLayer implements Dot11Interface {
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
 
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	private int debug = FULL_DEBUG; // SET TO 0 BEFORE TURNING IN!!!!!!!
-	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	private int debug = FULL_DEBUG; // SET TO 0 BEFORE TURNING IN!
 
 	private boolean randomSlots = true;
 
@@ -52,12 +50,8 @@ public class LinkLayer implements Dot11Interface {
 
 	private HashMap<Short, ArrayList<Short>> recievedACKS = new HashMap();
 
-	public synchronized BlockingQueue<Packet> getIn() { // These Queues will
-														// facilitate
-														// communication between
-														// the LinkLayer and its
-														// Sender and Receiver
-														// helper classes
+	public synchronized BlockingQueue<Packet> getIn() { // These Queues will facilitate communication between the LinkLayer and its
+														// Sender and Receiver helper classes.
 		return in;
 	}
 
@@ -78,11 +72,15 @@ public class LinkLayer implements Dot11Interface {
 		this.ourMAC = ourMAC;
 		this.output = output;
 		theRF = new RF(null, null);
+		
+		if(theRF == null){
+			currentStatus = RF_INIT_FAILED;
+		}
+		
 		output.println("LinkLayer initialized with MAC address of " + ourMAC);
+		output.println("Send command 0 to see a list of supported commands");
 
-		Receiver theReceiver = new Receiver(this, theRF); // Creates the sender
-															// and receiver
-															// instances
+		Receiver theReceiver = new Receiver(this, theRF); // Creates the sender and receiver instances
 		Sender theSender = new Sender(this, theRF);
 
 		Thread r = new Thread(theReceiver); // Threads them
@@ -119,21 +117,16 @@ public class LinkLayer implements Dot11Interface {
 	 * of bytes to send. See docs for full description.
 	 */
 	public int send(short dest, byte[] data, int len) {
-		// output.println("Sending " + len + " bytes to " + dest);
 
-		// byte[] fakeCRC = {-1, -1, -1, -1}; //Actual CRC stuff not implemented
-		// yet
-
+		if(data.length < len){
+			currentStatus = ILLEGAL_ARGUMENT;
+		}
+		
 		short seqNum = nextSeqNum(dest);
 
-		Packet p = new Packet(0, seqNum, dest, ourMAC, data); // Builds a packet
-																// using the
-																// supplied data
-		// Some parts of the packet are fake for now
+		Packet p = new Packet(0, seqNum, dest, ourMAC, data); // Builds a packet using the supplied data
 
 		if (out.size() < QUEUE_SIZE) {
-
-			// System.err.println("QUEUE has " + out.size() + " elements");
 
 			if (debug == FULL_DEBUG) {
 				output.println("Putting packet with sequence number " + seqNum
@@ -143,9 +136,10 @@ public class LinkLayer implements Dot11Interface {
 			try {
 				out.put(p); // Puts the created packet into the outgoing queue
 			} catch (InterruptedException e) {
-				this.currentStatus = UNSPECIFIED_ERROR;
+				currentStatus = UNSPECIFIED_ERROR;
 				e.printStackTrace();
 			}
+			currentStatus = SUCCESS;
 			return len;
 
 		} else {
@@ -158,22 +152,26 @@ public class LinkLayer implements Dot11Interface {
 	 * Recv method blocks until data arrives, then writes it an address info
 	 * into the Transmission object. See docs for full description.
 	 */
-	public int recv(Transmission t) { // Called by the above layer when it wants
-										// to receive data
+	public int recv(Transmission t) {	// Called by the above layer when it wants to receive data
 
 		Packet p;
+		
+		if(t == null){
+			currentStatus = ILLEGAL_ARGUMENT;
+		}
+		
 		try {
 			p = in.take(); // Grabs the next packet from the incoming queue
 			if (p.getSeqNum() < recvSequences.get(p.getSrcAddr())) {
 				output.println("Already got this");
 			} else {
-				byte[] data = p.getData(); // Extracts the necessary parts from
-											// the packet and puts them into the
+				byte[] data = p.getData(); 	// Extracts the necessary parts from the packet and puts them into the
 											// supplied transmission object
 				t.setSourceAddr((short) p.getSrcAddr());
 				t.setDestAddr((short) p.getDestAddr());
 				t.setBuf(data);
-				return data.length; // Returns the length of the data recieved
+				currentStatus = SUCCESS;
+				return data.length;	// Returns the length of the data recieved
 			}
 
 		} catch (InterruptedException e) {
@@ -209,12 +207,14 @@ public class LinkLayer implements Dot11Interface {
 			output.println("-----------------------------------------");
 			break;
 		case 1:
+			currentStatus = SUCCESS;
 			if (val == FULL_DEBUG) {
 				debug = FULL_DEBUG;
 			}
 			output.println("Setting debug to " + debug);
 			break;
 		case 2:
+			currentStatus = SUCCESS;
 			if (val == 0) {
 				output.println("Using random slot times");
 				randomSlots = true;
@@ -224,6 +224,7 @@ public class LinkLayer implements Dot11Interface {
 			}
 			break;
 		case 3:
+			currentStatus = SUCCESS;
 			if (val < 0) {
 				beaconDelay = -1;
 				output.println("Disabling beacons");
@@ -233,15 +234,13 @@ public class LinkLayer implements Dot11Interface {
 			}
 			break;
 		default:
+			currentStatus = ILLEGAL_ARGUMENT;
 			output.println("Command " + cmd + " not recognized.");
 		}
-		// output.println("LinkLayer: Sending command " + cmd + " with value "
-		// + val);
 		return 0;
 	}
 
-	class Sender implements Runnable { // Handles sending functions for the
-										// LinkLayer
+	class Sender implements Runnable { // Handles sending functions for the LinkLayer
 
 		private RF theRF;
 		private LinkLayer theLinkLayer;
@@ -249,6 +248,15 @@ public class LinkLayer implements Dot11Interface {
 		public Sender(LinkLayer thisLink, RF thisRF) {
 
 			theRF = thisRF;
+			
+			if(theRF == null){
+				currentStatus = RF_INIT_FAILED;
+			}
+			
+			if(thisLink == null){
+				currentStatus = ILLEGAL_ARGUMENT;
+			}
+			
 			theLinkLayer = thisLink;
 		}
 
@@ -256,18 +264,14 @@ public class LinkLayer implements Dot11Interface {
 			while (true) {
 				try {
 					// Dont forget about exponential backoff!
-					Thread.sleep(10); // Sleeps each time through, in order to
-										// not monopolize the CPU
+					Thread.sleep(10); // Sleeps each time through, in order to not monopolize the CPU
 				} catch (InterruptedException e) {
 					currentStatus = UNSPECIFIED_ERROR;
 					e.printStackTrace();
 				}
 
 				if (theLinkLayer.getOut().isEmpty() == false
-						&& theRF.inUse() == false) { // If there are Packets to
-														// be sent in the
-														// LinkLayer's outbound
-														// queue
+						&& theRF.inUse() == false) { // If there are Packets to be sent in the LinkLayer's outbound queue
 					// Also makes sure the RF is not in use
 
 					Packet p = null;
@@ -279,10 +283,8 @@ public class LinkLayer implements Dot11Interface {
 						e.printStackTrace();
 					}
 
-					theRF.transmit(p.getFrame()); // Send the first packet out
-													// on the RF layer
-					// output.println("SENT PACKET with SEQ NUM: "+
-					// p.getSeqNum());
+					theRF.transmit(p.getFrame()); // Send the first packet out on the RF layer
+					// output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
 
 					if (debug == FULL_DEBUG) {
 						output.println("Sent packet with sequence number "
@@ -303,10 +305,8 @@ public class LinkLayer implements Dot11Interface {
 					int counter = 0;
 
 					while (counter < RF.dot11RetryLimit
-							&& (theLinkLayer.recievedACKS.containsKey(p
-									.getDestAddr()) && theLinkLayer.recievedACKS
-									.get(p.getDestAddr()).contains(
-											p.getSeqNum()) == false)) {
+							&& (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())
+							&& theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)) {
 
 						Packet retryPacket = new Packet(p.getFrameType(),
 								p.getSeqNum(), p.getDestAddr(), p.getSrcAddr(),
@@ -319,13 +319,8 @@ public class LinkLayer implements Dot11Interface {
 									+ ". Attempt number: " + counter);
 						}
 
-						// output.println("RESENDING PACKET: "+
-						// retryPacket.getSeqNum()+" Attempt number: "+
-						// counter);
-						theRF.transmit(retryPacket.getFrame()); // Send the
-																// first packet
-																// out on the RF
-																// layer
+						// output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
+						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 
 						try {                                                     //TODO still need to round to nearest 50 ms
 							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
@@ -336,13 +331,18 @@ public class LinkLayer implements Dot11Interface {
 
 						counter++;
 					}
+					if (counter == RF.dot11RetryLimit){
+						currentStatus = TX_FAILED;
+					}
+					else{
+						currentStatus = TX_DELIVERED;
+					}
 				}
 			}
 		}
 	}
 
-	class Receiver implements Runnable { // Handles receiving functions for the
-											// LinkLayer
+	class Receiver implements Runnable { // Handles receiving functions for the LinkLayer
 
 		private RF theRF;
 		private LinkLayer theLinkLayer;
@@ -350,41 +350,33 @@ public class LinkLayer implements Dot11Interface {
 		public Receiver(LinkLayer thisLink, RF thisRF) {
 
 			theRF = thisRF;
+			
+			if(theRF == null){
+				currentStatus = RF_INIT_FAILED;
+			}
+			
+			if(thisLink == null){
+				currentStatus = ILLEGAL_ARGUMENT;
+			}
+			
 			theLinkLayer = thisLink;
 		}
 
 		public void run() {
 			while (true) {
 				try {
-					Thread.sleep(10); // Sleeps each time through, in order to
-										// not monopolize the CPU
+					Thread.sleep(10); // Sleeps each time through, in order to not monopolize the CPU
 				} catch (InterruptedException e) {
 					currentStatus = UNSPECIFIED_ERROR;
 					e.printStackTrace();
 				}
 
-				Packet recvPacket = new Packet(theRF.receive()); // Gets data
-																	// from the
-																	// RF layer,
-																	// turns it
-																	// into
-																	// packet
-																	// form
-
-				// TEST
-				output.println("\t Type: " + recvPacket.getFrameType());
-				output.println("\t Retry: " + recvPacket.isRetry());
-				output.println("\t SeqNum: " + recvPacket.getSeqNum());
-				output.println("\t DestAddr: " + recvPacket.getDestAddr());
-				output.println("\t SrcAddr: " + recvPacket.getSrcAddr());
-				// END TEST
+				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
 
 				short destAddr = recvPacket.getDestAddr();
 
-				if ((destAddr & 0xffff) == ourMAC
-						|| (destAddr & 0xffff) == 65535) {
-					// output.println("Packet for us: "+
-					// recvPacket.getSeqNum());
+				if ((destAddr & 0xffff) == ourMAC || (destAddr & 0xffff) == 65535) {
+					// output.println("Packet for us: "+ recvPacket.getSeqNum());
 
 					if (debug == FULL_DEBUG) {
 						output.println("Packet for us arrived from "
@@ -405,13 +397,7 @@ public class LinkLayer implements Dot11Interface {
 									+ recvPacket.getSeqNum());
 						}
 						try {
-							theLinkLayer.getIn().put(recvPacket); // Puts the
-																	// new
-																	// Packet
-																	// into the
-																	// LinkLayer's
-																	// inbound
-																	// queue
+							theLinkLayer.getIn().put(recvPacket); // Puts them new Packet into the LinkLayer's inbound queue
 						} catch (InterruptedException e) {
 							currentStatus = UNSPECIFIED_ERROR;
 							e.printStackTrace();
@@ -439,25 +425,18 @@ public class LinkLayer implements Dot11Interface {
 						// output.println("Sent an ACK: " + ack.getSeqNum());
 					} else if ((destAddr & 0xffff) == ourMAC
 							&& recvPacket.getFrameType() == 1) {
-						// output.println("Saw an ACK: " +
-						// recvPacket.getSeqNum());
+						// output.println("Saw an ACK: " + recvPacket.getSeqNum());
 
-						if (theLinkLayer.recievedACKS.containsKey(recvPacket
-								.getSrcAddr())) {
+						if (theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())) {
 
 							if (theLinkLayer.recievedACKS.get(
 									recvPacket.getSrcAddr()).contains(
 									recvPacket.getSeqNum())) {
-								// output.println("Already got this ACK: "+
-								// recvPacket.getSeqNum());
+								// output.println("Already got this ACK: "+ recvPacket.getSeqNum());
 							} else {
 
-								theLinkLayer.recievedACKS.get(
-										recvPacket.getSrcAddr()).add(
-										recvPacket.getSeqNum());
-								// output.println("Added an ACK for "+
-								// recvPacket.getSeqNum()+
-								// " from "+recvPacket.getSrcAddr());
+								theLinkLayer.recievedACKS.get(recvPacket.getSrcAddr()).add(recvPacket.getSeqNum());
+								// output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 							}
 
 						} else {
@@ -465,15 +444,11 @@ public class LinkLayer implements Dot11Interface {
 							newHost.add(recvPacket.getSeqNum());
 							theLinkLayer.recievedACKS.put(
 									recvPacket.getSrcAddr(), newHost);
-							// output.println("Added an ACK for "+
-							// recvPacket.getSeqNum()+
-							// " from "+recvPacket.getSrcAddr());
+							// output.println("Added an ACK for "+ recvPacket.getSeqNum()+ " from "+recvPacket.getSrcAddr());
 						}
 
 					} else {
-						// output.println("Saw a packet of type: "+
-						// recvPacket.getFrameType() + " from address "+
-						// (destAddr&0xffff));
+						// output.println("Saw a packet of type: "+ recvPacket.getFrameType() + " from address "+ (destAddr&0xffff));
 					}
 				} else {
 
