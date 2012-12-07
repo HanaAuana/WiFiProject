@@ -37,7 +37,21 @@ public class LinkLayer implements Dot11Interface {
 	public static final int WAIT_ACK = 2;
 	public static final int BUSY_WAIT = 3;
 	public static final int SLOT_WAIT = 4;
-	public static final int IDLE = 5;
+	public static final int IDLE_WAIT = 5;
+	
+	private int macState;
+	
+	private int ourSlot = 0;
+	
+	private boolean needNextPacket = true;
+	
+	private Packet macPacket;
+	
+	public static final int SIFS = RF.aSIFSTime;
+	public static final int SLOT = RF.aSlotTime;
+	public static final int DIFS = RF.aSIFSTime + (2*RF.aSlotTime);
+	
+	private int cWindow = RF.aCWmin;
 
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
@@ -78,6 +92,8 @@ public class LinkLayer implements Dot11Interface {
 		this.ourMAC = ourMAC;
 		this.output = output;
 		theRF = new RF(null, null);
+		
+		macState = DEFAULT_WAIT;
 		
 		if(theRF == null){
 			currentStatus = RF_INIT_FAILED;
@@ -123,7 +139,7 @@ public class LinkLayer implements Dot11Interface {
 	 * of bytes to send. See docs for full description.
 	 */
 	public int send(short dest, byte[] data, int len) {
-
+		
 		if(data.length < len){
 			currentStatus = ILLEGAL_ARGUMENT;
 		}
@@ -135,8 +151,7 @@ public class LinkLayer implements Dot11Interface {
 		if (out.size() < QUEUE_SIZE) {
 
 			if (debug == FULL_DEBUG) {
-				output.println("Putting packet with sequence number " + seqNum
-						+ "  and destination " + dest + " in RF.");
+				output.println("Queueing  " + p.getFrame().length + " bytes for " + dest);
 			}
 
 			try {
@@ -246,10 +261,31 @@ public class LinkLayer implements Dot11Interface {
 		return 0;
 	}
 
+	public long roundUp(long input){
+		return (long) Math.ceil((input % 50)/ 50.0);
+	}
+	
+	private void waitUntil(long time){
+		long cTime = theRF.clock();
+		while(cTime < time){
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private long nearestWait(long waitTime){
+		
+		return roundUp(theRF.clock() + waitTime);
+	}
+	
 	class Sender implements Runnable { // Handles sending functions for the LinkLayer
 
 		private RF theRF;
 		private LinkLayer theLinkLayer;
+		
 
 		public Sender(LinkLayer thisLink, RF thisRF) {
 
@@ -267,42 +303,45 @@ public class LinkLayer implements Dot11Interface {
 		}
 
 		public void run() {
-			while (true) {
-				try {
-					// Dont forget about exponential backoff!
-					Thread.sleep(10); // Sleeps each time through, in order to not monopolize the CPU
-				} catch (InterruptedException e) {
-					currentStatus = UNSPECIFIED_ERROR;
-					e.printStackTrace();
-				}
 
-				if (theLinkLayer.getOut().isEmpty() == false
-						&& theRF.inUse() == false) { // If there are Packets to be sent in the LinkLayer's outbound queue
-					// Also makes sure the RF is not in use
-
-					Packet p = null;
-
+			while (true) {				
+				if (theLinkLayer.getOut().isEmpty() == false && needNextPacket == true){
+					//System.err.println("getting next packet");
 					try {
-						p = theLinkLayer.getOut().take();
+						macPacket = theLinkLayer.getOut().take();
 					} catch (InterruptedException e) {
 						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
 					}
-
-					theRF.transmit(p.getFrame()); // Send the first packet out on the RF layer
-					// output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
-
-					if (debug == FULL_DEBUG) {
-						output.println("Sent packet with sequence number "
-								+ p.getSeqNum() + " to MAC address "
-								+ p.getDestAddr());
+					//System.err.println("got packet: "+ macPacket.toString());
+					needNextPacket = false;
+				}
+				
+				switch(macState){
+				
+				
+				
+				case DEFAULT_WAIT:	//1
+//					if(debug == FULL_DEBUG){
+//						output.println("Moved to DEFAULT_WAIT.");
+//					}
+					
+					if(!theLinkLayer.getOut().isEmpty()){
+						if(!theRF.inUse() ){
+							macState = IDLE_WAIT;
+						}else{
+							macState = BUSY_WAIT;
+						}
 					}
-					
-					
+					break;
+				case WAIT_ACK:	//2
+					if(debug == FULL_DEBUG){
+						output.println("Moved to WAIT_ACK.");
+					}
 					//ACK timeout should be around 2615 ms + whatever from the IEEE spec
 
 					try {
-						Thread.sleep((long) 1000);
+						Thread.sleep((long) 2615); //TODO add slop
 					} catch (InterruptedException e) {
 						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
@@ -311,12 +350,10 @@ public class LinkLayer implements Dot11Interface {
 					int counter = 0;
 
 					while (counter < RF.dot11RetryLimit
-							&& (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())
-							&& theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)) {
+							&& (theLinkLayer.recievedACKS.containsKey(macPacket.getDestAddr())
+							&& theLinkLayer.recievedACKS.get(macPacket.getDestAddr()).contains(macPacket.getSeqNum()) == false)) {
 
-						Packet retryPacket = new Packet(p.getFrameType(),
-								p.getSeqNum(), p.getDestAddr(), p.getSrcAddr(),
-								p.getData());
+						Packet retryPacket = new Packet(macPacket.getFrameType(), macPacket.getSeqNum(), macPacket.getDestAddr(), macPacket.getSrcAddr(),macPacket.getData());
 						retryPacket.setRetry(true);
 
 						if (debug == FULL_DEBUG) {
@@ -327,6 +364,10 @@ public class LinkLayer implements Dot11Interface {
 
 						// output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
 						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
+						
+						if (debug == FULL_DEBUG) {
+							output.println("Resending packet with sequence "+ retryPacket.getSeqNum()+ ". Attempt number: " + counter);
+						}
 
 						try {                                                     //TODO still need to round to nearest 50 ms
 							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
@@ -339,11 +380,145 @@ public class LinkLayer implements Dot11Interface {
 					}
 					if (counter == RF.dot11RetryLimit){
 						currentStatus = TX_FAILED;
+						macState = BUSY_WAIT;
 					}
 					else{
 						currentStatus = TX_DELIVERED;
+						needNextPacket = true;
+						macState = DEFAULT_WAIT;
 					}
+					
+					break;
+				case BUSY_WAIT:	//3
+					if(debug == FULL_DEBUG){
+						output.println("Moved to BUSY_WAIT.");
+					}
+					//EXP BACKOFF
+					
+					macState = SLOT_WAIT;
+					break;
+				case SLOT_WAIT:	//4
+					if(debug == FULL_DEBUG){
+						output.println("Moved to SLOT_WAIT.");
+					}
+					//Look at current time, align to slots. while our slot is not the current slot, loop through and wait a slot time each time. 
+					//Reduce our slot by 1 each time, until our slot is the current slot.
+					if(macPacket.getFrameType() == 0){
+						
+						theRF.transmit(macPacket.getFrame());
+						if (debug == FULL_DEBUG) {
+							output.println("Sent packet with sequence number "
+									+ macPacket.getSeqNum() + " to MAC address "
+									+ macPacket.getDestAddr());
+						}
+					}
+					else{
+						
+						
+					}
+					
+					if(macPacket.getSrcAddr() == -1){
+						// Broadcast packet, dont need to look for an ack
+						needNextPacket = true;
+						macState = DEFAULT_WAIT;
+					}
+					else{
+						macState = WAIT_ACK;
+					}
+					
+					
+					break;
+				case IDLE_WAIT:	//5
+					if(debug == FULL_DEBUG){
+						output.println("Moved to IDLE_WAIT.");
+					}
+					
+					waitUntil(nearestWait(DIFS));
+					if(debug == FULL_DEBUG){
+						output.println("DIFS wait is over. Starting slot countdown");
+					}
+					macState = SLOT_WAIT;
+					break;
+
+				default:
+					currentStatus = UNSPECIFIED_ERROR;
 				}
+				
+//				try {
+//					// Dont forget about exponential backoff!
+//					Thread.sleep(10); // Sleeps each time through, in order to not monopolize the CPU
+//				} catch (InterruptedException e) {
+//					currentStatus = UNSPECIFIED_ERROR;
+//					e.printStackTrace();
+//				}
+//
+//				if (theLinkLayer.getOut().isEmpty() == false && theRF.inUse() == false) { // If there are Packets to be sent in the LinkLayer's outbound queue
+//					                                                                      // Also makes sure the RF is not in use
+//
+//					//Packet p = null;
+//
+//					try {
+//						p = theLinkLayer.getOut().take();
+//					} catch (InterruptedException e) {
+//						currentStatus = UNSPECIFIED_ERROR;
+//						e.printStackTrace();
+//					}
+//
+//					theRF.transmit(p.getFrame()); // Send the first packet out on the RF layer
+//					// output.println("SENT PACKET with SEQ NUM: "+ p.getSeqNum());
+//
+//					if (debug == FULL_DEBUG) {
+//						output.println("Sent packet with sequence number "
+//								+ p.getSeqNum() + " to MAC address "
+//								+ p.getDestAddr());
+//					}
+//					
+//					
+//					//ACK timeout should be around 2615 ms + whatever from the IEEE spec
+//
+//					try {
+//						Thread.sleep((long) 1000);
+//					} catch (InterruptedException e) {
+//						currentStatus = UNSPECIFIED_ERROR;
+//						e.printStackTrace();
+//					}
+//
+//					int counter = 0;
+//
+//					while (counter < RF.dot11RetryLimit
+//							&& (theLinkLayer.recievedACKS.containsKey(p.getDestAddr())
+//							&& theLinkLayer.recievedACKS.get(p.getDestAddr()).contains(p.getSeqNum()) == false)) {
+//
+//						Packet retryPacket = new Packet(p.getFrameType(),
+//								p.getSeqNum(), p.getDestAddr(), p.getSrcAddr(),
+//								p.getData());
+//						retryPacket.setRetry(true);
+//
+//						if (debug == FULL_DEBUG) {
+//							output.println("Resending packet with sequence "
+//									+ retryPacket.getSeqNum()
+//									+ ". Attempt number: " + counter);
+//						}
+//
+//						// output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
+//						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
+//
+//						try {                                                     //TODO still need to round to nearest 50 ms
+//							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
+//						} catch (InterruptedException e) {
+//							currentStatus = UNSPECIFIED_ERROR;
+//							e.printStackTrace();
+//						}
+//
+//						counter++;
+//					}
+//					if (counter == RF.dot11RetryLimit){
+//						currentStatus = TX_FAILED;
+//					}
+//					else{
+//						currentStatus = TX_DELIVERED;
+//					}
+//				}
 			}
 		}
 	}
@@ -378,7 +553,11 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
-
+				
+				if(debug == FULL_DEBUG && recvPacket.getFrameType() == 0){
+					output.println("Tx starting from " + recvPacket.getSrcAddr() + " at local time " + theRF.clock() );
+				}
+				
 				short destAddr = recvPacket.getDestAddr();
 
 				if ((destAddr & 0xffff) == ourMAC || (destAddr & 0xffff) == 65535) {

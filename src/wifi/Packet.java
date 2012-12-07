@@ -45,6 +45,7 @@ public class Packet {
 		setSeqNum(seqNum);
 		setDestAddr(destAddr);
 		setSrcAddr(srcAddr);
+		setCRC();
 	}
 
 	public void setFrameType(int type){
@@ -158,6 +159,22 @@ public class Packet {
 	public int getCRC(){
 		int crc = buf.getInt(buf.limit()-4);
 		return crc;
+	}
+	
+	public boolean isGoodCRC(){
+	int test = getCRC();
+	
+	CRC32 crc32 = new CRC32();
+	crc32.update(buf.array(),0,buf.limit()-4);
+	int goodCRC = (int)crc32.getValue();
+	 
+	
+	if(test == goodCRC){
+		return true;
+	}else{
+		return false;
+	}
+	
 	}
 
 	public byte[] getFrame(){
