@@ -338,10 +338,10 @@ public class LinkLayer implements Dot11Interface {
 					if(debug == FULL_DEBUG){
 						output.println("Moved to WAIT_ACK.");
 					}
-					//ACK timeout should be around 2615 ms + whatever from the IEEE spec
+
 
 					try {
-						Thread.sleep((long) 2615); //TODO add slop
+						Thread.sleep((long) (2615+SIFS+SLOT)); //TODO add slop
 					} catch (InterruptedException e) {
 						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
