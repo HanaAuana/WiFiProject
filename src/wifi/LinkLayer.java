@@ -69,7 +69,7 @@ public class LinkLayer implements Dot11Interface {
 	private long lastBeacon = 0;
 
 	private int beaconOffset = 1900;
-	
+
 	private long localOffset = 0;
 
 	int retryCounter = 0;
@@ -145,7 +145,7 @@ public class LinkLayer implements Dot11Interface {
 		this.recvSequences.put(addr, (short) (nextSeq));
 		return nextSeq;
 	}
-	
+
 	public long getTime(){
 		return theRF.clock()+localOffset;
 	}
@@ -215,7 +215,6 @@ public class LinkLayer implements Dot11Interface {
 			e.printStackTrace();
 		}
 		return -1;
-
 	}
 
 	/**
@@ -336,12 +335,8 @@ public class LinkLayer implements Dot11Interface {
 		public void run() {
 
 			while (true) {				
-				
-				
-				
 
 				switch(macState){
-
 				case DEFAULT_WAIT:	//1
 
 					long cTime = getTime();
@@ -368,7 +363,7 @@ public class LinkLayer implements Dot11Interface {
 					}
 
 					else{
-						
+
 						if (!theLinkLayer.getOut().isEmpty() && needNextPacket){
 							System.err.println("Taking Packet Out");
 							try {
@@ -379,25 +374,23 @@ public class LinkLayer implements Dot11Interface {
 							}
 							needNextPacket = false;
 						}
-						
+
 						if(!theLinkLayer.getOut().isEmpty()){
-						//if(macPacket != null){	
+							//if(macPacket != null){	
 							if(!theRF.inUse() ){
 								macState = IDLE_WAIT;
 							}else{
 								macState = BUSY_WAIT;
 							}
-						//}
+							//}
 						}
 					}
-
 
 					break;
 				case WAIT_ACK:	//2
 					if(debug == FULL_DEBUG){
 						output.println("Moved to WAIT_ACK.");
 					}
-
 
 					try {
 						Thread.sleep((long) (2615+SIFS+SLOT)); //Average ACK transmission + SIFS + SLOT (IEEE Spec.)
@@ -445,7 +438,6 @@ public class LinkLayer implements Dot11Interface {
 
 						if(macPacket.getFrameType() == 2){
 
-
 							retryCounter = 0;
 							needNextPacket = true;
 
@@ -457,17 +449,15 @@ public class LinkLayer implements Dot11Interface {
 						}
 						else{
 
-
 							retryCounter = 0;
 							needNextPacket = true;
 
 							if(debug == FULL_DEBUG){
 								output.println("Moving to DEFAULT_WAIT.");
 							}
-							
+
 							macPacket = null; //TEST
 							macState = DEFAULT_WAIT;
-
 						}
 					}
 
@@ -518,10 +508,7 @@ public class LinkLayer implements Dot11Interface {
 							macState = BUSY_WAIT;
 						}else{
 
-
-
 							if(macPacket.getFrameType() == 2){
-
 
 								if(beaconDebug == true){
 
@@ -552,7 +539,6 @@ public class LinkLayer implements Dot11Interface {
 								else{
 									macState = WAIT_ACK;
 								}
-
 							}
 							else{
 
@@ -573,14 +559,6 @@ public class LinkLayer implements Dot11Interface {
 							}
 						}
 					}
-					else{
-						//Beacon Stuff
-
-					}
-
-
-
-
 					break;
 				case IDLE_WAIT:	//5
 					if(debug == FULL_DEBUG){
@@ -593,7 +571,7 @@ public class LinkLayer implements Dot11Interface {
 					}
 
 					if(macPacket.getFrameType() == 2){
-						
+
 						if(beaconDebug == true){
 
 							ByteBuffer buf = ByteBuffer.allocate(8);
@@ -601,13 +579,11 @@ public class LinkLayer implements Dot11Interface {
 							long timeStamp = buf.getLong();
 							output.println("Sending BEACON at: "+ getTime()+ " built at " + timeStamp);
 						}
-
 					}
 
 					theRF.transmit(macPacket.getFrame());
 
 					if(macPacket.getFrameType() == 2){
-
 
 						if(macPacket.getDestAddr() == -1){
 							needNextPacket = true;
@@ -636,7 +612,6 @@ public class LinkLayer implements Dot11Interface {
 							macState = WAIT_ACK;	
 						}
 					}
-
 					break;
 
 				default:
@@ -676,7 +651,7 @@ public class LinkLayer implements Dot11Interface {
 				}
 
 				Packet recvPacket = new Packet(theRF.receive()); // Gets data from the RF layer, turns it into packet form
-				
+
 
 				if(debug == FULL_DEBUG && recvPacket.getFrameType() != 1){
 					output.println("Tx starting from " + recvPacket.getSrcAddr() + " at local time " + getTime() );
@@ -747,14 +722,14 @@ public class LinkLayer implements Dot11Interface {
 							}
 						}
 						else if(recvPacket.getFrameType() == 2){ //TODO handle recieving beacons
-							
+
 							byte[] payload = recvPacket.getData();
 							ByteBuffer buf = ByteBuffer.allocate(8);
 							buf = ByteBuffer.wrap(payload);
 							long timeStamp = buf.getLong();
-							
+
 							long localTime = getTime();
-							
+
 							if(timeStamp > localTime){
 								localOffset = timeStamp - localTime;
 								if(debug == FULL_DEBUG){
@@ -768,8 +743,6 @@ public class LinkLayer implements Dot11Interface {
 											" vs. our "+ localTime + ". Time is now: "+ getTime());
 								}
 							}
-							
-							
 						}
 						else{
 							output.println("Unexpected frame type");
