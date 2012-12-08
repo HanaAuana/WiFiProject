@@ -19,6 +19,7 @@ import rf.RF;
  */
 
 public class LinkLayer implements Dot11Interface {
+	//ROLLBACK
 	private RF theRF; // Simulates a physical layer for us to send on
 	private short ourMAC; // The address we are using
 	private PrintWriter output; // The output stream we'll write to
