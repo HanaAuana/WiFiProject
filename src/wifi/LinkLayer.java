@@ -69,7 +69,7 @@ public class LinkLayer implements Dot11Interface {
 	private long lastBeacon = 0;
 
 
-	private int beaconOffset = 0;
+	private int beaconOffset = 1900;
 
 	int retryCounter = 0;
 
@@ -333,9 +333,7 @@ public class LinkLayer implements Dot11Interface {
 			while (true) {				
 				
 				
-				if(macPacket == null){
-					System.err.println("NULL Packet");
-				}
+				
 
 				switch(macState){
 
@@ -346,8 +344,6 @@ public class LinkLayer implements Dot11Interface {
 					long cTime = theRF.clock();
 
 					if(lastBeacon + beaconDelay <= cTime  ){//Time to send a Beacon
-						System.err.println("swapping packets for beacon ");
-						storePacket = macPacket;
 						lastBeacon = cTime;
 
 						if(beaconDebug == true){
@@ -367,7 +363,21 @@ public class LinkLayer implements Dot11Interface {
 						}
 
 					}
+
 					else{
+						
+						if (theLinkLayer.getOut().isEmpty() == false && needNextPacket == true){
+							try {
+								macPacket = theLinkLayer.getOut().take();
+							} catch (InterruptedException e) {
+								currentStatus = UNSPECIFIED_ERROR;
+								e.printStackTrace();
+							}
+							needNextPacket = false;
+						}
+						
+
+						
 						if(!theLinkLayer.getOut().isEmpty()){
 							if(!theRF.inUse() ){
 								macState = IDLE_WAIT;
@@ -433,10 +443,7 @@ public class LinkLayer implements Dot11Interface {
 
 
 							retryCounter = 0;
-							needNextPacket = false;
-							
-							System.err.println("Returning to send packet "+ storePacket.toString());
-							macPacket = storePacket;
+							needNextPacket = true;
 
 							if(debug == FULL_DEBUG){
 								output.println("Moving to DEFAULT_WAIT.");
@@ -532,9 +539,8 @@ public class LinkLayer implements Dot11Interface {
 									if(debug == FULL_DEBUG){
 										output.println("Moving to DEFAULT_WAIT.");
 									}
-									System.err.println("Returning to send packet "+ storePacket.toString());
-									macPacket = storePacket;
-									needNextPacket = false;
+
+									needNextPacket = true;
 									macState = DEFAULT_WAIT;
 								}
 								else{
@@ -598,9 +604,7 @@ public class LinkLayer implements Dot11Interface {
 
 
 						if(macPacket.getDestAddr() == -1){
-							needNextPacket = false;
-							System.err.println("Returning to send packet "+ storePacket.toString());
-							macPacket = storePacket;
+							needNextPacket = true;
 
 							if(debug == FULL_DEBUG){
 								output.println("Moving to DEFAULT_WAIT.");
@@ -714,8 +718,8 @@ public class LinkLayer implements Dot11Interface {
 							}
 
 							theRF.transmit(ack.getFrame());
-						} else if ((destAddr & 0xffff) == ourMAC
-								&& recvPacket.getFrameType() == 1) {
+						} 
+						else if ((destAddr & 0xffff) == ourMAC && recvPacket.getFrameType() == 1) {
 							output.println("Got a valid ACK: " + recvPacket.toString());
 
 							if (theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())) {
@@ -733,6 +737,13 @@ public class LinkLayer implements Dot11Interface {
 								theLinkLayer.recievedACKS.put(
 										recvPacket.getSrcAddr(), newHost);
 							}
+						}
+						else if(recvPacket.getFrameType() == 2){
+							
+						}
+						else{
+							output.println("Unexpected frame type");
+							currentStatus = ILLEGAL_ARGUMENT; //Frame type was not 0,1, or 2
 						}
 					}
 				}else{
