@@ -1,4 +1,15 @@
-Checkpoint #3
+WifiProject
+-----------
+@author Alex King and Michael Lim
+@date 12.8.2012
+
+Checkpoint 1 (4/5):
+
+Implemented two-threaded approach to simulating Wifi
+
+Checkpoint 2 (5/5):
+
+Checkpoint 3 (4/5):
 
 Alex King and Michael Lim
 
