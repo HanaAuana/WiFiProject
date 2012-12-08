@@ -503,7 +503,7 @@ public class LinkLayer implements Dot11Interface {
 //						// output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
 //						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 //
-//						try {                                                     //TODO still need to round to nearest 50 ms
+//						try {                                                     
 //							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
 //						} catch (InterruptedException e) {
 //							currentStatus = UNSPECIFIED_ERROR;
