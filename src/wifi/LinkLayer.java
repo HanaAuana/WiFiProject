@@ -57,10 +57,13 @@ public class LinkLayer implements Dot11Interface {
 	private static final int FULL_DEBUG = -1;
 
 	private int debug = FULL_DEBUG; // SET TO 0 BEFORE TURNING IN!
+	boolean debugRound = false;
 
 	private boolean randomSlots = true;
 
 	private int beaconDelay = 5;
+	
+	int retryCounter = 0;
 
 	private BlockingQueue<Packet> in = new ArrayBlockingQueue(QUEUE_SIZE);
 	private BlockingQueue<Packet> out = new ArrayBlockingQueue(QUEUE_SIZE);
@@ -151,7 +154,7 @@ public class LinkLayer implements Dot11Interface {
 		if (out.size() < QUEUE_SIZE) {
 
 			if (debug == FULL_DEBUG) {
-				output.println("Queueing  " + p.getFrame().length + " bytes for " + dest);
+				output.println("Queueing  " + p.getData().length + " bytes for " + dest);
 			}
 
 			try {
@@ -261,22 +264,40 @@ public class LinkLayer implements Dot11Interface {
 		return 0;
 	}
 
-	public long roundUp(long input){
-		return (long) Math.ceil((input % 50)/ 50.0);
+	private long roundUp(long input){
+		
+		if (Math.ceil(input % 50L / 50.0D) == 1.0D) //If already multiple of 50
+		{
+			return input + (50L - input % 50L);
+		}else{
+		    return input;
+		}
 	}
 	
 	private void waitUntil(long time){
 		long cTime = theRF.clock();
+		
+		
+		
 		while(cTime < time){
+			if(debugRound == true){
+				output.println("Time is: "+ cTime + " Need to wait till: " + time);
+			}
 			try {
 				Thread.sleep(10);
 			} catch (InterruptedException e) {
+				currentStatus = UNSPECIFIED_ERROR;
 				e.printStackTrace();
 			}
+			cTime+=10;
 		}
 	}
 	
 	private long nearestWait(long waitTime){
+		
+		if(debugRound == true){
+			output.println("Time is: "+ theRF.clock() + " Need to wait: " + waitTime+ "  rounding to: " + roundUp(theRF.clock() + waitTime));
+		}
 		
 		return roundUp(theRF.clock() + waitTime);
 	}
@@ -341,15 +362,15 @@ public class LinkLayer implements Dot11Interface {
 
 
 					try {
-						Thread.sleep((long) (2615+SIFS+SLOT)); //TODO add slop
+						Thread.sleep((long) (2615+SIFS+SLOT)); //Average ACK transmission + SIFS + SLOT (IEEE Spec.)
 					} catch (InterruptedException e) {
 						currentStatus = UNSPECIFIED_ERROR;
 						e.printStackTrace();
 					}
 
-					int counter = 0;
+					//int counter = 0;
 
-					while (counter < RF.dot11RetryLimit
+					while (retryCounter < RF.dot11RetryLimit
 							&& (theLinkLayer.recievedACKS.containsKey(macPacket.getDestAddr())
 							&& theLinkLayer.recievedACKS.get(macPacket.getDestAddr()).contains(macPacket.getSeqNum()) == false)) {
 
@@ -359,41 +380,41 @@ public class LinkLayer implements Dot11Interface {
 						if (debug == FULL_DEBUG) {
 							output.println("Resending packet with sequence "
 									+ retryPacket.getSeqNum()
-									+ ". Attempt number: " + counter);
+									+ ". Attempt number: " + retryCounter);
 						}
 
 						// output.println("RESENDING PACKET: "+ retryPacket.getSeqNum()+" Attempt number: "+ counter);
 						theRF.transmit(retryPacket.getFrame()); // Send the first packet out on the RF layer
 						
-						if (debug == FULL_DEBUG) {
-							output.println("Resending packet with sequence "+ retryPacket.getSeqNum()+ ". Attempt number: " + counter);
-						}
 
-						try {                                                     //TODO still need to round to nearest 50 ms
-							Thread.sleep((long) RF.aSIFSTime + (2*RF.aSlotTime)); //Waiting DIFS after send 
-						} catch (InterruptedException e) {
-							currentStatus = UNSPECIFIED_ERROR;
-							e.printStackTrace();
-						}
+                                                    //TODO still need to round to nearest 50 ms
+							waitUntil(nearestWait(DIFS)); //Waiting DIFS after send 
 
-						counter++;
+							retryCounter++;
 					}
-					if (counter == RF.dot11RetryLimit){
+					if (retryCounter == RF.dot11RetryLimit){					
 						currentStatus = TX_FAILED;
-						macState = BUSY_WAIT;
 					}
 					else{
 						currentStatus = TX_DELIVERED;
-						needNextPacket = true;
-						macState = DEFAULT_WAIT;
 					}
+					
+					//System.err.println("Not waiting for ack anymore");
+					retryCounter = 0;
+					needNextPacket = true;
+					macState = DEFAULT_WAIT;
 					
 					break;
 				case BUSY_WAIT:	//3
 					if(debug == FULL_DEBUG){
 						output.println("Moved to BUSY_WAIT.");
+						output.println("Waiting for DIFS to elapse after current Tx...");
 					}
-					//EXP BACKOFF
+				
+					waitUntil(nearestWait(DIFS));
+					if(debug == FULL_DEBUG){
+						output.println("DIFS wait is over, starting slot countdown (" + ourSlot + ")");
+					}
 					
 					macState = SLOT_WAIT;
 					break;
@@ -435,9 +456,17 @@ public class LinkLayer implements Dot11Interface {
 					
 					waitUntil(nearestWait(DIFS));
 					if(debug == FULL_DEBUG){
-						output.println("DIFS wait is over. Starting slot countdown");
+						output.println("Trasmitting packet after DIFS wait at " + theRF.clock());
 					}
-					macState = SLOT_WAIT;
+					
+					theRF.transmit(macPacket.getFrame());
+					
+					if(macPacket.getDestAddr() == -1){
+						macState = DEFAULT_WAIT;
+					}else{
+					macState = WAIT_ACK;	
+					}
+					
 					break;
 
 				default:
@@ -610,7 +639,7 @@ public class LinkLayer implements Dot11Interface {
 						// output.println("Sent an ACK: " + ack.getSeqNum());
 					} else if ((destAddr & 0xffff) == ourMAC
 							&& recvPacket.getFrameType() == 1) {
-						// output.println("Saw an ACK: " + recvPacket.getSeqNum());
+						output.println("Got a valid ACK: " + recvPacket.toString());
 
 						if (theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())) {
 

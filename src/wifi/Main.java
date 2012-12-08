@@ -5,9 +5,15 @@ public class Main {
 	public static void main(String[] args){
 		
 		//testPacketInOut_C1();
-		testPacketInOut_C2();
+		//testPacketInOut_C2();
 		//bitShift();
 		//testPacket_3();
+		testRound();
+	}
+	
+	public static void testRound(){
+		long test = 750;
+		System.out.println(test + (50L - test % 50L));
 	}
 	
 	public static void testPacketInOut_C1(){
