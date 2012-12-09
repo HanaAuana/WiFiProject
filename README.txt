@@ -14,7 +14,7 @@ Checkpoint 2 (5/5):
 Checkpoint 3 (4/5):
 
 	Implemented address selectivity. Didn't implement MAC rules. ACKs mostly worked. Sequences were out of order due to a structural
-	issue in our Packet() constructor.
+	issue in our Packet() constructor. Fixed after reconstructing Packet().
 
 Overall Project:
 

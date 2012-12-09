@@ -61,7 +61,7 @@ public class LinkLayer implements Dot11Interface {
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
 
-	private int debug = FULL_DEBUG;
+	private int debug = 0;
 
 	private boolean randomSlots = true;
 
@@ -125,10 +125,8 @@ public class LinkLayer implements Dot11Interface {
 
 	/**
 	 * Increments next sequence number for a given address
-	 * @param addr
-	 * @return
 	 */
-	public short nextSeqNum(short addr) {
+	private short nextSeqNum(short addr) {
 		short nextSeq;
 		if (sendSequences.containsKey(addr)) {
 			nextSeq = (short) (sendSequences.get(addr) + 1);
@@ -139,7 +137,10 @@ public class LinkLayer implements Dot11Interface {
 		return nextSeq;
 	}
 
-	public short gotRecvSeqNum(short addr) {
+	/**
+	 * Checks given address for received sequences
+	 */
+	private short gotRecvSeqNum(short addr) {
 		short nextSeq;
 		if (recvSequences.containsKey(addr)) {
 			nextSeq = (short) (recvSequences.get(addr) + 1);
@@ -215,15 +216,13 @@ public class LinkLayer implements Dot11Interface {
 			e.printStackTrace();
 		}
 		return -1;
-
 	}
 
 	/**
 	 * Returns a current status code. See docs for full description.
 	 */
 	public int status() {
-		output.println("LinkLayer: Faking a status() return value of 0");
-		return 0;
+		return currentStatus;
 	}
 
 	/**
@@ -270,20 +269,28 @@ public class LinkLayer implements Dot11Interface {
 				output.println("Disabling beacons");
 			} else {
 				output.println("Using a beacon delay of " + val + " seconds");
-				beaconDelay = val*1000;
+				beaconDelay = val*1000; //Convert to milliseconds
 			}
 			break;
-		default:
+		default: //Unknown command
 			currentStatus = ILLEGAL_ARGUMENT;
 			output.println("Command " + cmd + " not recognized.");
 		}
 		return 0;
 	}
 
-	public long getTime(){
+	/**
+	 * Returns time including current clock offset
+	 */
+	private long getTime(){
 		return theRF.clock()+localOffset;
 	}
 
+	/**
+	 * Rounds a value up to the nearest 50.
+	 * @param input
+	 * @return
+	 */
 	private long roundUp(long input){
 
 		if (Math.ceil(input % 50L / 50.0D) == 1.0D) //If already multiple of 50
@@ -294,6 +301,11 @@ public class LinkLayer implements Dot11Interface {
 		}
 	}
 
+	/**
+	 * Waits until the given time according to the current local clock (with offset)
+	 * @param time
+	 * @return
+	 */
 	private long waitUntil(long time){
 		long cTime = getTime();
 
@@ -309,17 +321,25 @@ public class LinkLayer implements Dot11Interface {
 		return time;
 	}
 
+	/**
+	 * Aligns to wait time with rounding slots of 50.
+	 * @param waitTime
+	 * @return
+	 */
 	private long nearestWait(long waitTime){
 		
-		long waitedUntil = roundUp(getTime() + waitTime);
 		return roundUp(getTime() + waitTime);
 	}
 
-	class Sender implements Runnable { // Handles sending functions for the LinkLayer
+	/**
+	 * Thread that handles all sending function of the LinkLayer
+	 * @author aking & mlim
+	 *
+	 */
+	class Sender implements Runnable {
 
 		private RF theRF;
 		private LinkLayer theLinkLayer;
-
 
 		public Sender(LinkLayer thisLink, RF thisRF) {
 
@@ -346,7 +366,7 @@ public class LinkLayer implements Dot11Interface {
 					long cTime = getTime();
 					macPacket = null;
 
-					if(lastBeacon + beaconDelay <= cTime && beaconDelay > 0){//Time to send a Beacon
+					if(lastBeacon + beaconDelay <= cTime && beaconDelay > 0){	//Time to send a Beacon
 						lastBeacon = cTime;
 
 						ByteBuffer buf = ByteBuffer.allocate(8);
@@ -370,8 +390,8 @@ public class LinkLayer implements Dot11Interface {
 						}
 					}
 
-					else{
-						if (!theLinkLayer.getOut().isEmpty() && needNextPacket){
+					else{	//send something other than BEACON
+						if (!theLinkLayer.getOut().isEmpty() && needNextPacket){ //Something to send
 							try {
 								macPacket = theLinkLayer.getOut().take();
 							} catch (InterruptedException e) {
@@ -380,8 +400,7 @@ public class LinkLayer implements Dot11Interface {
 							}
 							needNextPacket = false;
 						}
-						if(macPacket != null){
-							//if(!theLinkLayer.getOut().isEmpty()){
+						if(macPacket != null){ //Leave DEFAULT_WAIT
 							if(!theRF.inUse() ){
 
 								if(debug == FULL_DEBUG){
@@ -395,7 +414,6 @@ public class LinkLayer implements Dot11Interface {
 								}
 								macState = BUSY_WAIT;
 							}
-							//}
 						}
 					}
 
@@ -409,7 +427,7 @@ public class LinkLayer implements Dot11Interface {
 						e.printStackTrace();
 					}
 
-					if((!theLinkLayer.recievedACKS.containsKey(macPacket.getDestAddr())
+					if((!theLinkLayer.recievedACKS.containsKey(macPacket.getDestAddr())	//No ACK received
 							|| !theLinkLayer.recievedACKS.get(macPacket.getDestAddr()).contains(macPacket.getSeqNum()))) {
 
 						retryCounter++;
@@ -418,7 +436,7 @@ public class LinkLayer implements Dot11Interface {
 
 							cWindow = RF.aCWmin;
 
-						}else if(cWindow < RF.aCWmax){
+						}else if(cWindow < RF.aCWmax){ //Backoff until maximum window
 							cWindow = cWindow * 2;
 							if(cWindow > RF.aCWmax){
 								cWindow = RF.aCWmax;
@@ -431,7 +449,7 @@ public class LinkLayer implements Dot11Interface {
 							output.println("Setting collision window to [0..." + cWindow + "]" );
 						}
 
-						if(retryCounter < RF.dot11RetryLimit){
+						if(retryCounter < RF.dot11RetryLimit){	//Resend ACK packet
 							if(randomSlots){
 								Random rand = new Random();
 								ourSlot = rand.nextInt(cWindow);
@@ -445,45 +463,28 @@ public class LinkLayer implements Dot11Interface {
 							macState = BUSY_WAIT;
 							macPacket.setRetry(true);
 
-						}else{
+						}else{ //Retry limit exhausted. Move to DEFAULT_WAIT.
 							retryCounter = 0;
 							needNextPacket = true;
 
+							currentStatus = TX_FAILED;
 							if(debug == FULL_DEBUG){
 								output.println("Moving to DEFAULT_WAIT after exhausting retry limit.");
 							}
 							macState = DEFAULT_WAIT;
 						}
 
-					}else{
+					}else{	//ACK received
+						retryCounter = 0;
+						needNextPacket = true;
 
-						if(macPacket.getFrameType() == 2){
-							retryCounter = 0;
-							needNextPacket = true;
-
-							if(debug == FULL_DEBUG){
-								output.println("Moving to DEFAULT_WAIT.");
-							}
-							macState = DEFAULT_WAIT;
+						if(debug == FULL_DEBUG){
+							output.println("Moving to DEFAULT_WAIT.");
 						}
-						else{
-							retryCounter = 0;
-							needNextPacket = true;
-
-							if(debug == FULL_DEBUG){
-								output.println("Moving to DEFAULT_WAIT.");
-							}
-							macState = DEFAULT_WAIT;
-
-						}
+						macState = DEFAULT_WAIT;
 					}
 
-					if (retryCounter == RF.dot11RetryLimit){					
-						currentStatus = TX_FAILED;
-					}
-					else{
-						currentStatus = TX_DELIVERED;
-					}
+					currentStatus = TX_DELIVERED;
 
 					break;
 				case BUSY_WAIT:	//3
@@ -491,7 +492,7 @@ public class LinkLayer implements Dot11Interface {
 						output.println("Waiting for DIFS to elapse after current Tx...");
 					}
 
-					waited = waitUntil(nearestWait(DIFS));
+					waited = waitUntil(nearestWait(DIFS));	//Wait DIFS + nearest roundUp
 					if(debug == FULL_DEBUG){
 						output.println("DIFS wait is over at " + waited + ", starting slot countdown (" + ourSlot + ")");
 					}
@@ -514,7 +515,7 @@ public class LinkLayer implements Dot11Interface {
 							output.println("Slot waited until " + waited);
 						}
 
-						if(theRF.inUse()){
+						if(theRF.inUse()){	//RF still busy
 
 							if(debug == FULL_DEBUG){
 								output.println("RF is in use");
@@ -523,7 +524,7 @@ public class LinkLayer implements Dot11Interface {
 							macState = BUSY_WAIT;
 						}else{
 
-							if(macPacket.getFrameType() == 2){
+							if(macPacket.getFrameType() == 2){	//BEACON
 
 								if(debug == FULL_DEBUG){
 
@@ -539,41 +540,20 @@ public class LinkLayer implements Dot11Interface {
 								output.println("Transmitting packet after waiting DIFS + SLOT(s) wait at " + getTime());
 							}
 
-							if(macPacket.getFrameType() == 2){
-								if(macPacket.getDestAddr() == -1){
-									// Broadcast packet. Don't need to look for an ACK
+							if(macPacket.getDestAddr() == -1){
+								// Broadcast packet. Don't need to look for an ACK
 
-									if(debug == FULL_DEBUG){
-										output.println("Moving to DEFAULT_WAIT.");
-									}
-									needNextPacket = true;
-									macState = DEFAULT_WAIT;
+								if(debug == FULL_DEBUG){
+									output.println("Moving to DEFAULT_WAIT.");
 								}
-								else{
-									if(debug == FULL_DEBUG){
-										output.println("Moving to WAIT_ACK.");
-									}
-									macState = WAIT_ACK;
-								}
-
+								needNextPacket = true;
+								macState = DEFAULT_WAIT;
 							}
 							else{
-
-								if(macPacket.getDestAddr() == -1){
-									// Broadcast packet. Don't need to look for an ACK
-
-									if(debug == FULL_DEBUG){
-										output.println("Moving to DEFAULT_WAIT.");
-									}
-									needNextPacket = true;
-									macState = DEFAULT_WAIT;
+								if(debug == FULL_DEBUG){
+									output.println("Moving to WAIT_ACK.");
 								}
-								else{
-									if(debug == FULL_DEBUG){
-										output.println("Moving to WAIT_ACK.");
-									}
-									macState = WAIT_ACK;
-								}
+								macState = WAIT_ACK;
 							}
 						}
 					}
@@ -587,9 +567,7 @@ public class LinkLayer implements Dot11Interface {
 						output.println("Transmitting packet after IDLE DIFS wait at " + waited);
 					}
 
-					if(macPacket.getFrameType() == 2){
-
-						if(debug == FULL_DEBUG){
+						if(debug == FULL_DEBUG && macPacket.getFrameType() == 2){ //BEACON
 
 							ByteBuffer buf = ByteBuffer.allocate(8);
 							buf = ByteBuffer.wrap(macPacket.getData());
@@ -597,38 +575,20 @@ public class LinkLayer implements Dot11Interface {
 							output.println("Sending BEACON at: "+ getTime()+ ", built at " + timeStamp);
 						}
 
-						if(macPacket.getDestAddr() == -1){
+						if(macPacket.getDestAddr() == -1){ //Broadcast
 							needNextPacket = true;
 
 							if(debug == FULL_DEBUG){
 								output.println("Moving to DEFAULT_WAIT.");
 							}
 							macState = DEFAULT_WAIT;
-						}else{
+						}else{	//Regular wait for ACK
 
 							if(debug == FULL_DEBUG){
 								output.println("Moving to WAIT_ACK.");
 							}
 							macState = WAIT_ACK;	
 						}
-
-					}
-					else{
-						if(macPacket.getDestAddr() == -1){
-							needNextPacket = true;
-
-							if(debug == FULL_DEBUG){
-								output.println("Moving to DEFAULT_WAIT.");
-							}
-							macState = DEFAULT_WAIT;
-						}else{
-
-							if(debug == FULL_DEBUG){
-								output.println("Moving to WAIT_ACK.");
-							}
-							macState = WAIT_ACK;	
-						}
-					}
 
 					break;
 				default:
@@ -638,7 +598,12 @@ public class LinkLayer implements Dot11Interface {
 		}
 	}
 
-	class Receiver implements Runnable { // Handles receiving functions for the LinkLayer
+	/**
+	 * Thread that handles all receiving function of the LinkLayer
+	 * @author aking & mlim
+	 *
+	 */
+	class Receiver implements Runnable {
 
 		private RF theRF;
 		private LinkLayer theLinkLayer;
@@ -675,20 +640,20 @@ public class LinkLayer implements Dot11Interface {
 
 				short destAddr = recvPacket.getDestAddr();
 
-				if(recvPacket.isGoodCRC()){
+				if(recvPacket.isGoodCRC()){	//Good CRC
 
 					if(debug == FULL_DEBUG){
 						output.println("\tReceived packet with good CRC: " + recvPacket.toString());
 					}
 
-					if ((destAddr & 0xffff) == ourMAC || (destAddr & 0xffff) == 65535) {
+					if ((destAddr & 0xffff) == ourMAC || (destAddr & 0xffff) == 65535) {	//Packet for us or Broadcast
 
-						if ((destAddr & 0xffff) == ourMAC
+						if ((destAddr & 0xffff) == ourMAC	//Data Packet for Us & Have space in queue
 								&& recvPacket.getFrameType() == 0
 								&& theLinkLayer.getIn().size() < QUEUE_SIZE) {
 
 							short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
-							if (recvPacket.getSeqNum() > nextSeq) {
+							if (recvPacket.getSeqNum() > nextSeq) {	//Sequence out of order
 
 								output.println("Sequence out of order. Expected: "
 										+ nextSeq + ". Received: "
@@ -701,7 +666,7 @@ public class LinkLayer implements Dot11Interface {
 								e.printStackTrace();
 							}
 
-							Packet ack = new Packet(1, recvPacket.getSeqNum(),
+							Packet ack = new Packet(1, recvPacket.getSeqNum(),	//Build ACK
 									recvPacket.getSrcAddr(), ourMAC, null);
 
 							try {
@@ -716,9 +681,9 @@ public class LinkLayer implements Dot11Interface {
 										+ ack.getDestAddr());
 							}
 
-							theRF.transmit(ack.getFrame());
+							theRF.transmit(ack.getFrame());	//Transmit ACK
 						} 
-						else if ((destAddr & 0xffff) == ourMAC && recvPacket.getFrameType() == 1) {
+						else if ((destAddr & 0xffff) == ourMAC && recvPacket.getFrameType() == 1) {	//Receive ACK for us
 							output.println("Got a valid ACK: " + recvPacket.toString());
 
 							if (theLinkLayer.recievedACKS.containsKey(recvPacket.getSrcAddr())) {
@@ -737,7 +702,7 @@ public class LinkLayer implements Dot11Interface {
 										recvPacket.getSrcAddr(), newHost);
 							}
 						}
-						else if(recvPacket.getFrameType() == 2){
+						else if(recvPacket.getFrameType() == 2){	//Receive BEACON
 
 							byte[] payload = recvPacket.getData();
 							ByteBuffer buf = ByteBuffer.allocate(8);
@@ -759,7 +724,7 @@ public class LinkLayer implements Dot11Interface {
 											" vs. our "+ localTime + ". Time is now: "+ getTime());
 								}
 							}
-						}else if((destAddr & 0xffff) == 65535){
+						}else if((destAddr & 0xffff) == 65535){	//Broadcast
 							
 							short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
 							if (recvPacket.getSeqNum() > nextSeq) {
@@ -775,13 +740,13 @@ public class LinkLayer implements Dot11Interface {
 								e.printStackTrace();
 							}
 						}
-						else{
+						else{	//Frametype other than DATA, ACK, or BEACON
 							output.println("Unexpected frame type");
-							currentStatus = ILLEGAL_ARGUMENT; //Frame type was not 0,1, or 2
+							currentStatus = ILLEGAL_ARGUMENT;
 						}
 					}
 				}else{
-					if(debug == FULL_DEBUG){
+					if(debug == FULL_DEBUG){	//Bad CRC. Ignore.
 						output.println("\tIgnored packet with bad CRC: " + recvPacket.toString());
 					}
 				}
