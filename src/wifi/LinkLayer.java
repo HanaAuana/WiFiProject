@@ -49,6 +49,8 @@ public class LinkLayer implements Dot11Interface {
 
 	private Packet macPacket;
 	private long localOffset;
+	
+	long waited;
 
 	public static final int SIFS = RF.aSIFSTime;
 	public static final int SLOT = RF.aSlotTime;
@@ -59,9 +61,7 @@ public class LinkLayer implements Dot11Interface {
 	private static final int QUEUE_SIZE = 4;
 	private static final int FULL_DEBUG = -1;
 
-	private int debug = FULL_DEBUG; // SET TO 0 BEFORE TURNING IN!
-	boolean debugRound = false;
-	boolean beaconDebug = true;
+	private int debug = FULL_DEBUG;
 
 	private boolean randomSlots = true;
 
@@ -69,7 +69,7 @@ public class LinkLayer implements Dot11Interface {
 	private long lastBeacon = 0;
 	private static final long PROCESS_DELAY = 450;
 
-	private int beaconOffset = 1900;
+	private int beaconOffset = 1900; //After running tests
 
 	int retryCounter = 0;
 
@@ -82,7 +82,7 @@ public class LinkLayer implements Dot11Interface {
 	private HashMap<Short, ArrayList<Short>> recievedACKS = new HashMap();
 
 	public synchronized BlockingQueue<Packet> getIn() { // These Queues will facilitate communication between the LinkLayer and its
-		// Sender and Receiver helper classes.
+														// Sender and Receiver helper classes.
 		return in;
 	}
 
@@ -123,6 +123,11 @@ public class LinkLayer implements Dot11Interface {
 		s.start();
 	}
 
+	/**
+	 * Increments next sequence number for a given address
+	 * @param addr
+	 * @return
+	 */
 	public short nextSeqNum(short addr) {
 		short nextSeq;
 		if (sendSequences.containsKey(addr)) {
@@ -233,7 +238,7 @@ public class LinkLayer implements Dot11Interface {
 			output.println("Cmd 1: \t Set debug value. Debug currently at "
 					+ debug);
 			output.println("\t Use -1 for full debug output, 0 for no output.");
-			output.println("Cmd 2: \t Set slot for link layer.");
+			output.println("Cmd 2: \t Set slot for link layer. 0 for random slot time, else, max slot time.");
 			output.println("Cmd 3: \t Set desired wait time between start of beacon transmissions (in seconds).");
 			output.println("-----------------------------------------");
 			break;
@@ -241,6 +246,10 @@ public class LinkLayer implements Dot11Interface {
 			currentStatus = SUCCESS;
 			if (val == FULL_DEBUG) {
 				debug = FULL_DEBUG;
+			}
+
+			if(val == 0){
+				debug = 0;
 			}
 			output.println("Setting debug to " + debug);
 			break;
@@ -274,7 +283,7 @@ public class LinkLayer implements Dot11Interface {
 	public long getTime(){
 		return theRF.clock()+localOffset;
 	}
-	
+
 	private long roundUp(long input){
 
 		if (Math.ceil(input % 50L / 50.0D) == 1.0D) //If already multiple of 50
@@ -285,13 +294,10 @@ public class LinkLayer implements Dot11Interface {
 		}
 	}
 
-	private void waitUntil(long time){
+	private long waitUntil(long time){
 		long cTime = getTime();
 
 		while(cTime < time){
-			if(debugRound == true){
-				output.println("Time is: "+ cTime + " Need to wait till: " + time);
-			}
 			try {
 				Thread.sleep(10);
 			} catch (InterruptedException e) {
@@ -300,14 +306,12 @@ public class LinkLayer implements Dot11Interface {
 			}
 			cTime+=10;
 		}
+		return time;
 	}
 
 	private long nearestWait(long waitTime){
-
-		if(debugRound == true){
-			output.println("Time is: "+ getTime() + " Need to wait: " + waitTime+ "  rounding to: " + roundUp(getTime() + waitTime));
-		}
-
+		
+		long waitedUntil = roundUp(getTime() + waitTime);
 		return roundUp(getTime() + waitTime);
 	}
 
@@ -334,7 +338,7 @@ public class LinkLayer implements Dot11Interface {
 		public void run() {
 
 			while (true) {				
-				
+
 				switch(macState){
 
 				case DEFAULT_WAIT:	//1
@@ -345,10 +349,6 @@ public class LinkLayer implements Dot11Interface {
 					if(lastBeacon + beaconDelay <= cTime && beaconDelay > 0){//Time to send a Beacon
 						lastBeacon = cTime;
 
-						if(beaconDebug == true){
-							output.println("Time for a BEACON");
-						}
-
 						ByteBuffer buf = ByteBuffer.allocate(8);
 						buf.putLong(getTime() + beaconOffset);
 						byte[] timeStamp = buf.array();
@@ -356,13 +356,13 @@ public class LinkLayer implements Dot11Interface {
 
 						macPacket = beacon;
 						if(!theRF.inUse() ){
-							
+
 							if(debug == FULL_DEBUG){
 								output.println("Moving to IDLE_WAIT.");
 							}
 							macState = IDLE_WAIT;
 						}else{
-							
+
 							if(debug == FULL_DEBUG){
 								output.println("Moving to BUSY_WAIT.");
 							}
@@ -381,21 +381,21 @@ public class LinkLayer implements Dot11Interface {
 							needNextPacket = false;
 						}
 						if(macPacket != null){
-						//if(!theLinkLayer.getOut().isEmpty()){
+							//if(!theLinkLayer.getOut().isEmpty()){
 							if(!theRF.inUse() ){
-								
+
 								if(debug == FULL_DEBUG){
 									output.println("Moving to IDLE_WAIT.");
 								}
 								macState = IDLE_WAIT;
 							}else{
-								
+
 								if(debug == FULL_DEBUG){
 									output.println("Moving to BUSY_WAIT.");
 								}
 								macState = BUSY_WAIT;
 							}
-						//}
+							//}
 						}
 					}
 
@@ -438,7 +438,7 @@ public class LinkLayer implements Dot11Interface {
 							}else{
 								ourSlot = cWindow;
 							}
-							
+
 							if(debug == FULL_DEBUG){
 								output.println("Moving to BUSY_WAIT");
 							}
@@ -467,7 +467,6 @@ public class LinkLayer implements Dot11Interface {
 							macState = DEFAULT_WAIT;
 						}
 						else{
-							System.err.println("RetryCounter: " + retryCounter);
 							retryCounter = 0;
 							needNextPacket = true;
 
@@ -492,9 +491,9 @@ public class LinkLayer implements Dot11Interface {
 						output.println("Waiting for DIFS to elapse after current Tx...");
 					}
 
-					waitUntil(nearestWait(DIFS));
+					waited = waitUntil(nearestWait(DIFS));
 					if(debug == FULL_DEBUG){
-						output.println("DIFS wait is over, starting slot countdown (" + ourSlot + ")");
+						output.println("DIFS wait is over at " + waited + ", starting slot countdown (" + ourSlot + ")");
 					}
 
 					if(debug == FULL_DEBUG){
@@ -507,13 +506,12 @@ public class LinkLayer implements Dot11Interface {
 					//Reduce our slot by 1 each time, until our slot is the current slot.
 					if(macPacket.getFrameType() == 0){
 
-						//output.println("True Clock: " + getTime() + " Rounded Clock: " +roundUp(getTime()));
 						waitUntil(roundUp(getTime()));
 
 						//Wait for our slot
-						waitUntil(getTime() + (ourSlot *SLOT));
+						waited = waitUntil(getTime() + (ourSlot *SLOT));
 						if(debug == FULL_DEBUG){
-							output.println("Slot waited until " + getTime());
+							output.println("Slot waited until " + waited);
 						}
 
 						if(theRF.inUse()){
@@ -527,7 +525,7 @@ public class LinkLayer implements Dot11Interface {
 
 							if(macPacket.getFrameType() == 2){
 
-								if(beaconDebug == true){
+								if(debug == FULL_DEBUG){
 
 									ByteBuffer buf = ByteBuffer.allocate(8);
 									buf = ByteBuffer.wrap(macPacket.getData());
@@ -579,38 +577,25 @@ public class LinkLayer implements Dot11Interface {
 							}
 						}
 					}
-					else{
-						//Beacon Stuff
-
-					}
-
-
-
 
 					break;
 				case IDLE_WAIT:	//5
 
-					waitUntil(nearestWait(DIFS));
+					waited = waitUntil(nearestWait(DIFS));
+					theRF.transmit(macPacket.getFrame());
 					if(debug == FULL_DEBUG){
-						output.println("Transmitting packet after DIFS wait at " + getTime());
+						output.println("Transmitting packet after IDLE DIFS wait at " + waited);
 					}
 
-					if( macPacket.getFrameType() == 2){
+					if(macPacket.getFrameType() == 2){
 
-						if(beaconDebug == true){
+						if(debug == FULL_DEBUG){
 
 							ByteBuffer buf = ByteBuffer.allocate(8);
 							buf = ByteBuffer.wrap(macPacket.getData());
 							long timeStamp = buf.getLong();
-							output.println("Sending BEACON at: "+ getTime()+ " built at " + timeStamp);
+							output.println("Sending BEACON at: "+ getTime()+ ", built at " + timeStamp);
 						}
-
-					}
-
-					theRF.transmit(macPacket.getFrame());
-
-					if(macPacket.getFrameType() == 2){
-
 
 						if(macPacket.getDestAddr() == -1){
 							needNextPacket = true;
@@ -620,7 +605,7 @@ public class LinkLayer implements Dot11Interface {
 							}
 							macState = DEFAULT_WAIT;
 						}else{
-							
+
 							if(debug == FULL_DEBUG){
 								output.println("Moving to WAIT_ACK.");
 							}
@@ -637,7 +622,7 @@ public class LinkLayer implements Dot11Interface {
 							}
 							macState = DEFAULT_WAIT;
 						}else{
-							
+
 							if(debug == FULL_DEBUG){
 								output.println("Moving to WAIT_ACK.");
 							}
@@ -752,7 +737,7 @@ public class LinkLayer implements Dot11Interface {
 										recvPacket.getSrcAddr(), newHost);
 							}
 						}
-						else if(recvPacket.getFrameType() == 2){ //TODO handle recieving beacons
+						else if(recvPacket.getFrameType() == 2){
 
 							byte[] payload = recvPacket.getData();
 							ByteBuffer buf = ByteBuffer.allocate(8);
@@ -773,6 +758,21 @@ public class LinkLayer implements Dot11Interface {
 									output.println("Ignored beacon, incoming time was "+timeStamp+ 
 											" vs. our "+ localTime + ". Time is now: "+ getTime());
 								}
+							}
+						}else if((destAddr & 0xffff) == 65535){
+							
+							short nextSeq = gotRecvSeqNum(recvPacket.getSrcAddr());
+							if (recvPacket.getSeqNum() > nextSeq) {
+
+								output.println("Broadcast packet had wrong sequence number. Expected: "
+										+ nextSeq + ". Received: "
+										+ recvPacket.getSeqNum() + ".");
+							}
+							try {
+								theLinkLayer.getIn().put(recvPacket); // Puts them new Packet into the LinkLayer's inbound queue
+							} catch (InterruptedException e) {
+								currentStatus = UNSPECIFIED_ERROR;
+								e.printStackTrace();
 							}
 						}
 						else{
